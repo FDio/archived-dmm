@@ -18,7 +18,7 @@
 #define _NSFW_PS_MODULE_H
 
 #include "nsfw_ps_api.h"
-#include "nsfw_mem_api.h"
+#include "dmm_ring.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -33,7 +33,7 @@ extern "C"{
 #define NSFW_MAX_PID 65535
 COMPAT_PROTECT (NSFW_MAX_PID, 65535);
 
-#define NSFW_PS_INFO_MAX_COUNT 4095
+#define NSFW_PS_INFO_MAX_COUNT 4096
 #define MAX_NET_LINK_BUF_DEF 0x34000*32
 
 #define NSFW_PS_WEXIT_TIMER  1
@@ -52,7 +52,7 @@ typedef struct _nsfw_ps_init_cfg
   u16 ps_chk_hbt_soft_count;
   u16 ps_chk_hbt_tvalue;
 
-  mring_handle ps_info_pool;
+  struct dmm_ring *ps_info_pool;
 } nsfw_ps_init_cfg;
 
 #define NSFW_PS_CHK_TIMER  1

@@ -22,16 +22,15 @@
 #include "types.h"
 #include "list.h"
 
-#include "common_mem_common.h"
-
 #include "nstack_securec.h"
 #include "nsfw_init.h"
 #include "nsfw_mgr_com_api.h"
-#include "nsfw_mem_api.h"
 #include "nstack_log.h"
 #include "nsfw_base_linux_api.h"
 #include "nsfw_fd_timer_api.h"
 #include "nsfw_maintain_api.h"
+
+#include "dmm_memory.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -40,7 +39,7 @@ extern "C"{
 #endif /* __cplusplus */
 
 #define NSFW_TIMER_CYCLE 1
-#define NSFW_TIMER_INFO_MAX_COUNT_DEF 8191
+#define NSFW_TIMER_INFO_MAX_COUNT_DEF 8192
 #define NSFW_TIMER_INFO_MAX_COUNT (g_timer_cfg.timer_info_size)
 /* *INDENT-OFF* */
 nsfw_timer_init_cfg g_timer_cfg;
@@ -66,8 +65,7 @@ nsfw_timer_reg_timer (u32 timer_type, void *data,
                       nsfw_timer_proc_fun fun, struct timespec time_left)
 {
   nsfw_timer_info *tm_info = NULL;
-  if (0 ==
-      nsfw_mem_ring_dequeue (g_timer_cfg.timer_info_pool, (void *) &tm_info))
+  if (1 != dmm_dequeue (g_timer_cfg.timer_info_pool, (void **) &tm_info))
     {
       NSFW_LOGERR ("dequeue error]data=%p,fun=%p", data, fun);
       return NULL;
@@ -75,7 +73,7 @@ nsfw_timer_reg_timer (u32 timer_type, void *data,
 
   if (EOK != MEMSET_S (tm_info, sizeof (*tm_info), 0, sizeof (*tm_info)))
     {
-      if (0 == nsfw_mem_ring_enqueue (g_timer_cfg.timer_info_pool, tm_info))
+      if (1 != dmm_enqueue (g_timer_cfg.timer_info_pool, tm_info))
         {
           NSFW_LOGERR ("enqueue error]data=%p,fun=%p", data, fun);
         }
@@ -121,7 +119,7 @@ nsfw_timer_rmv_timer (nsfw_timer_info * tm_info)
 
   tm_info->alloc_flag = FALSE;
   list_del (&tm_info->node);
-  if (0 == nsfw_mem_ring_enqueue (g_timer_cfg.timer_info_pool, tm_info))
+  if (1 != dmm_enqueue (g_timer_cfg.timer_info_pool, tm_info))
     {
       NSFW_LOGERR ("tm_info free failed]tm_info=%p,argv=%p,fun=%p", tm_info,
                    tm_info->argv, tm_info->fun);
@@ -334,29 +332,17 @@ nsfw_timer_module_init (void *param)
 
   timer_cfg->timer_info_size = NSFW_TIMER_INFO_MAX_COUNT_DEF;
 
-  nsfw_mem_sppool pmpinfo;
-  pmpinfo.enmptype = NSFW_MRING_MPMC;
-  pmpinfo.usnum = timer_cfg->timer_info_size;
-  pmpinfo.useltsize = sizeof (nsfw_timer_info);
-  pmpinfo.isocket_id = NSFW_SOCKET_ANY;
-  pmpinfo.stname.entype = NSFW_NSHMEM;
-  if (-1 ==
-      SPRINTF_S (pmpinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 "MS_TM_INFOPOOL"))
-    {
-      NSFW_LOGERR ("SPRINTF_S failed");
-      return -1;
-    }
-  timer_cfg->timer_info_pool = nsfw_mem_sp_create (&pmpinfo);
-
+  timer_cfg->timer_info_pool = dmm_malloc_pool (sizeof (nsfw_timer_info),
+                                                timer_cfg->timer_info_size,
+                                                DMM_RING_INIT_MPMC);
   if (!timer_cfg->timer_info_pool)
     {
       NSFW_LOGERR ("alloc timer info pool_err");
       return -1;
     }
 
-  MEM_STAT (NSFW_TIMER_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
-            nsfw_mem_get_len (timer_cfg->timer_info_pool, NSFW_MEM_SPOOL));
+//  MEM_STAT (NSFW_TIMER_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
+//            nsfw_mem_get_len (timer_cfg->timer_info_pool, NSFW_MEM_SPOOL));
 
   INIT_LIST_HEAD (&(timer_cfg->timer_head));
   INIT_LIST_HEAD (&(timer_cfg->exp_timer_head));
@@ -367,7 +353,7 @@ nsfw_timer_module_init (void *param)
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME (NSFW_TIMER_MODULE)
-NSFW_MODULE_PRIORITY (10)
+NSFW_MODULE_PRIORITY (30)
 NSFW_MODULE_DEPENDS (NSFW_MGR_COM_MODULE)
 NSFW_MODULE_INIT (nsfw_timer_module_init)
 /* *INDENT-ON* */

@@ -27,6 +27,7 @@
 #include "nsfw_init.h"
 #include "alarm_api.h"
 
+#include "mgr_com.h"
 #include "nsfw_mgr_com_api.h"
 #include "nsfw_ps_mem_api.h"
 #include "nsfw_ps_api.h"
@@ -292,7 +293,7 @@ nstack_main (void)
 
   char *argv[NSTACK_MAIN_MAX_PARA];
   argv[0] = "nStackMain";
-  argv[1] = "-c";;
+  argv[1] = "-c";
   argv[2] = "0xffffffff";
   argv[3] = "-n";
   argv[4] = "3";
@@ -309,6 +310,7 @@ main (int argc, char *argv[])
 {
 #endif
   fw_poc_type proc_type = NSFW_PROC_MAIN;
+  nsfw_mem_para stinfo = { 0 };
 
   /* although nStackMaster has set close on exec, here can't be removed.
    * in upgrade senario, if Master is old which has not set close on exec, here,
@@ -365,6 +367,13 @@ main (int argc, char *argv[])
 
   (void) nsfw_reg_trace_thread (pthread_self ());
 
+  stinfo.iargsnum = uStackArgIndex;
+  stinfo.pargs = gArgv;
+  stinfo.enflag = NSFW_PROC_MAIN;
+
+  (void) nstack_framework_setModuleParam (NSFW_MEM_MGR_MODULE, &stinfo);
+  (void) nstack_framework_setModuleParam (NSFW_PS_MEM_MODULE,
+                                          (void *) ((u64) proc_type));
   (void) nstack_framework_setModuleParam (NSFW_ALARM_MODULE,
                                           (void *) ((u64) proc_type));
   (void) nstack_framework_setModuleParam (TCPDUMP_MODULE,

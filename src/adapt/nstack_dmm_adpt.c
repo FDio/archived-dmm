@@ -21,10 +21,8 @@ extern "C" {
 #endif /* __cplusplus */
 
 #include "nsfw_init.h"
-#include "nsfw_mem_api.h"
 #include "nsfw_recycle_api.h"
 #include "nsfw_mgr_com_api.h"
-#include "nsfw_ps_mem_api.h"
 #include "nsfw_ps_api.h"
 #include "nsfw_recycle_api.h"
 #include "nsfw_fd_timer_api.h"
@@ -33,6 +31,9 @@ extern "C" {
 #include "nstack_dmm_api.h"
 #include "nstack_dmm_adpt.h"
 #include "mgr_com.h"
+
+#include "dmm_sys.h"
+#include "dmm_memory.h"
 
 int g_same_process = 1;
 
@@ -57,10 +58,9 @@ nstack_event_callback (void *pdata, int events)
 
   NSSOC_LOGDBG ("Got one event]fd=%d,events=%u", epInfo->fd, events);
 
-  sys_arch_lock_with_pid (&epInfo->epiLock);
-  struct list_node *fdEpiHead =
-    (struct list_node *) ADDR_SHTOL (epInfo->epiList.head);
-  struct list_node *node = (struct list_node *) ADDR_SHTOL (fdEpiHead->next);
+  dmm_spin_lock_pid (&epInfo->epiLock);
+  struct list_node *fdEpiHead = epInfo->epiList.head;
+  struct list_node *node = fdEpiHead->next;
   struct epitem *epi = NULL;
   struct eventpoll *ep = NULL;
   while (node)
@@ -68,8 +68,8 @@ nstack_event_callback (void *pdata, int events)
 
       epi = (struct epitem *) ep_list_entry (node, struct epitem, fllink);
 
-      node = (struct list_node *) ADDR_SHTOL (node->next);
-      ep = (struct eventpoll *) ADDR_SHTOL (epi->ep);
+      node = node->next;
+      ep = epi->ep;
       if (!(epi->event.events & events))
         continue;
 
@@ -79,14 +79,14 @@ nstack_event_callback (void *pdata, int events)
           continue;
         }
 
-      sys_arch_lock_with_pid (&ep->lock);
+      dmm_spin_lock_pid (&ep->lock);
 
       if (unlikely (ep->ovflist != NSEP_EP_UNACTIVE_PTR))
         {
           if (epi->next == NSEP_EP_UNACTIVE_PTR)
             {
               epi->next = ep->ovflist;
-              ep->ovflist = (struct epitem *) ADDR_LTOSH (epi);
+              ep->ovflist = epi;
             }
           epi->ovf_revents |= events;
           NSSOC_LOGDBG ("Add to ovflist]protoFD=%d,event=%d", epInfo->fd,
@@ -100,9 +100,9 @@ nstack_event_callback (void *pdata, int events)
         }
       epi->revents |= (epi->event.events & events);
     out_unlock:
-      sys_sem_s_signal (&ep->lock);
+      dmm_spin_unlock (&ep->lock);
     }
-  sys_sem_s_signal (&epInfo->epiLock);
+  dmm_spin_unlock (&epInfo->epiLock);
   /*  [Remove fdInf->event_sem post] */
   return 0;
 }
@@ -110,16 +110,12 @@ nstack_event_callback (void *pdata, int events)
 int
 nstack_adpt_init (nstack_dmm_para * para)
 {
-  nsfw_mem_para stinfo = { 0 };
   i32 init_ret = 0;
 
   if (!para)
     {
       return -1;
     }
-  stinfo.iargsnum = para->argc;
-  stinfo.pargs = para->argv;
-  stinfo.enflag = para->proc_type;
   if (para->deploy_type != NSTACK_MODEL_TYPE1
       && para->deploy_type != NSTACK_MODEL_TYPE_SIMPLE_STACK)
     {
@@ -128,14 +124,13 @@ nstack_adpt_init (nstack_dmm_para * para)
 
   nsfw_com_attr_set (para->attr.policy, para->attr.pri);
 
-  (void) nstack_framework_setModuleParam (NSFW_MEM_MGR_MODULE, &stinfo);
+  (void) nstack_framework_setModuleParam (DMM_MEMORY_MODULE,
+                                          (void *) ((u64) NSFW_PROC_MAIN));
   (void) nstack_framework_setModuleParam (NSFW_MGR_COM_MODULE,
                                           (void *) ((u64) para->proc_type));
   (void) nstack_framework_setModuleParam (NSFW_TIMER_MODULE,
                                           (void *) ((u64) para->proc_type));
   (void) nstack_framework_setModuleParam (NSFW_PS_MODULE,
-                                          (void *) ((u64) para->proc_type));
-  (void) nstack_framework_setModuleParam (NSFW_PS_MEM_MODULE,
                                           (void *) ((u64) para->proc_type));
   (void) nstack_framework_setModuleParam (NSFW_RECYCLE_MODULE,
                                           (void *) ((u64) para->proc_type));
@@ -213,12 +208,11 @@ nstack_init_module (void *para)
 }
 
 NSFW_MODULE_NAME (NSTACK_DMM_MODULE)
-NSFW_MODULE_PRIORITY (10)
-NSFW_MODULE_DEPENDS (NSFW_MEM_MGR_MODULE)
+NSFW_MODULE_PRIORITY (70)
+NSFW_MODULE_DEPENDS (DMM_MEMORY_MODULE)
 NSFW_MODULE_DEPENDS (NSFW_MGR_COM_MODULE)
 NSFW_MODULE_DEPENDS (NSFW_TIMER_MODULE)
 NSFW_MODULE_DEPENDS (NSFW_PS_MODULE)
-NSFW_MODULE_DEPENDS (NSFW_PS_MEM_MODULE)
 NSFW_MODULE_DEPENDS (NSFW_RECYCLE_MODULE)
 NSFW_MODULE_DEPENDS (NSFW_LOG_CFG_MODULE)
 NSFW_MODULE_DEPENDS (NSFW_RES_MGR_MODULE)

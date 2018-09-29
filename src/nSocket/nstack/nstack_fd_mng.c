@@ -26,6 +26,9 @@
 #include "nstack_socket.h"
 #include "nstack_securec.h"
 #include "nstack_sockops.h"
+#include "nsfw_mgr_com_api.h"
+
+#include "dmm_sys.h"
 
 /* test_epollCtl_004_001_trial : both 32bit and 64bit members of 'ops' and 'conn'
    need to reset, otherwise it will be invalid address in 32bit APP case */

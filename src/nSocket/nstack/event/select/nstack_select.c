@@ -17,6 +17,8 @@
 /*==============================================*
  *      include header files                    *
  *----------------------------------------------*/
+#include "pthread.h"
+#include "errno.h"
 #include "nstack_select.h"
 #include "nstack_log.h"
 #include "nsfw_base_linux_api.h"

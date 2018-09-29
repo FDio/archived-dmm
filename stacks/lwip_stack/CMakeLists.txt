@@ -25,6 +25,8 @@ SET(NSTACKTOOLS_PATH ${CMAKE_CURRENT_LIST_DIR}/release/tools)
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB_PATH_STATIC})
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EXECUTABLE_PATH})
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIB_PATH_SHARED})
+SET(DMM_REL_INC_DIR ${PROJECT_SOURCE_DIR}/../../release/include)
+SET(COMPLE_CONFIG ${DMM_REL_INC_DIR}/compile_config.h)
 
 
 MESSAGE(STATUS "Top dir is: " ${CMAKE_CURRENT_LIST_DIR})
@@ -41,6 +43,9 @@ endif()
 
 if(WITH_HAL_LIB)
   add_definitions(-DHAL_LIB)
+  SET(RTP_CONFIG ${PROJECT_SOURCE_DIR}/src/include/rtp_config.h)
+else()
+  SET(RTP_CONFIG ${PROJECT_SOURCE_DIR}/src/include/common/common_sys_config.h)
 endif()
 
 SET(post_compile "${PROJECT_BINARY_DIR}/post_compile.sh")
@@ -58,7 +63,6 @@ echo post compile process success.
 ADD_CUSTOM_TARGET(DPDK ALL COMMAND sh post_compile.sh)
 
 execute_process(
-    COMMAND cp -rf ${CMAKE_CURRENT_LIST_DIR}/../../release/include	${CMAKE_CURRENT_LIST_DIR}/src/
     COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/../../release/lib64/libnStackAPI.so	${CMAKE_CURRENT_LIST_DIR}/release/lib64/
     COMMAND cp ${CMAKE_CURRENT_LIST_DIR}/../../release/lib64/libdmm_api.so	${CMAKE_CURRENT_LIST_DIR}/release/lib64/
     COMMAND echo "stacklwip prepare ok"
@@ -68,6 +72,9 @@ execute_process(
 )
 
 ADD_DEFINITIONS(-D_GNU_SOURCE -DNSTACK_GETVER_VERSION="18.07")
+INCLUDE_DIRECTORIES(${DMM_REL_INC_DIR})
+INCLUDE_DIRECTORIES(src/include)
+INCLUDE_DIRECTORIES(src/include/common)
 
 SET(JSON_C_SRC ${CMAKE_CURRENT_LIST_DIR}/../../thirdparty/json/json-c-0.12.1)
 INCLUDE(ExternalProject)
@@ -110,4 +117,3 @@ ADD_SUBDIRECTORY(src)
 ADD_SUBDIRECTORY(lwip_src)
 ADD_SUBDIRECTORY(lwip_src/socket)
 ADD_SUBDIRECTORY(tools)
-#ADD_SUBDIRECTORY(thirdparty/rsrdma)

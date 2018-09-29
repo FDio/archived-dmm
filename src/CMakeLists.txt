@@ -14,20 +14,15 @@
 # limitations under the License.
 #########################################################################
 
-if(WITH_HAL_LIB)
-else()
-    SET(COMM_CONFIG ${PROJECT_SOURCE_DIR}/src/framework/common/base/include/common/common_sys_config.h)
-    #SET(PRI_DIRECTORIES "framework/common/base/include/common/")
-endif()
 
 INCLUDE_DIRECTORIES(
 	framework/log/
 	framework/mem
+	framework/ring
 	framework/include/
 	framework/common/include/
 	framework/common/include/arch/${DMM_ARCH}
 	framework/common/base/include/
-	framework/common/base/include/common/
 	${PRI_DIRECTORIES}
 	../platform/SecureC/include/
 	../thirdparty/glog/glog-0.3.4/src/
@@ -40,7 +35,6 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,relro,-z,now -Wl,--disable-new-dtags"
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack -mcmodel=medium")
 
 SET(COMPLE_CONFIG ${PROJECT_SOURCE_DIR}/src/framework/common/include/compile_config.h)
-ADD_DEFINITIONS(-include ${COMM_CONFIG})
 ADD_DEFINITIONS(-include ${COMPLE_CONFIG})
 ADD_DEFINITIONS(-D_GNU_SOURCE -DNSTACK_GETVER_VERSION="18.07")
 #LINK_DIRECTORIES(${LIB_PATH_SHARED} ${LIB_PATH_STATIC})

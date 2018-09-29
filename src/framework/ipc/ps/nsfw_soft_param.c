@@ -26,8 +26,6 @@
 #include "nstack_log.h"
 #include "nsfw_maintain_api.h"
 
-#include "nsfw_mem_api.h"
-
 #ifdef __cplusplus
 /* *INDENT-OFF* */
 extern "C"{
@@ -286,7 +284,7 @@ nsfw_softparam_module_init (void *param)
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME (NSFW_SOFT_PARAM_MODULE)
-NSFW_MODULE_PRIORITY (99)
+NSFW_MODULE_PRIORITY (50)
 NSFW_MODULE_INIT (nsfw_softparam_module_init)
 /* *INDENT-ON* */
 

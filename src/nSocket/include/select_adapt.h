@@ -35,9 +35,8 @@
 
 #include "types.h"
 #include "nstack_module.h"
-#include "common_mem_spinlock.h"
 #include "nstack_securec.h"
-#include "common_func.h"
+#include "dmm_spinlock.h"
 
 #define SBR_MAX_FD_NUM MAX_SOCKET_NUM
 
@@ -54,11 +53,11 @@
 }
 
 typedef sem_t select_sem_t;
-typedef common_mem_spinlock_t select_spinlock_t;
+typedef dmm_spinlock_t select_spinlock_t;
 
-#define select_spin_lock(lock)         (common_mem_spinlock_lock((lock)))
-#define select_spin_unlock(lock)     (common_mem_spinlock_unlock((lock)))
-#define select_spin_lock_init(lock)   (common_mem_spinlock_init((lock)))
+#define select_spin_lock(lock)         (dmm_spin_lock((lock)))
+#define select_spin_unlock(lock)     (dmm_spin_unlock((lock)))
+#define select_spin_lock_init(lock)   (dmm_spin_init((lock)))
 
 #define  select_sem_wait(sem)                       (sem_wait((sem)))
 #define  select_sem_init(sem,  share,  val)      (sem_init((sem), (share), (val)))

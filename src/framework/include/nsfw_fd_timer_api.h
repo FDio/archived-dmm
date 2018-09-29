@@ -26,12 +26,14 @@ extern "C"{
 /* *INDENT-ON* */
 #endif /* __cplusplus */
 
+#include "dmm_ring.h"
+
 #define NSFW_TIMER_MODULE      "nsfw_timer"
 
 typedef struct _nsfw_timer_init_cfg
 {
   u32 timer_info_size;
-  void *timer_info_pool;
+  struct dmm_ring *timer_info_pool;
   struct list_head timer_head;
   struct list_head exp_timer_head;
 } nsfw_timer_init_cfg;

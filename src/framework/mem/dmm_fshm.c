@@ -19,6 +19,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <errno.h>
+
+#include "nstack_log.h"
+#include "nsfw_base_linux_api.h"
 
 #include "dmm_config.h"
 #include "dmm_share.h"
@@ -27,10 +31,11 @@
 #define DMM_FSHM_FMT "%s/dmm-fshm-%d"   /* VAR_DIR pid */
 
 inline static void
-set_fshm_path (struct dmm_share *share)
+set_fshm_path (char path[DMM_SHARE_PATH_MAX], pid_t pid)
 {
-  (void) snprintf (share->path, sizeof (share->path), DMM_FSHM_FMT,
-                   DMM_VAR_DIR, share->pid);
+  (void) snprintf (path, DMM_SHARE_PATH_MAX, DMM_FSHM_FMT, DMM_VAR_DIR, pid);
+
+  path[DMM_SHARE_PATH_MAX - 1] = 0;
 }
 
 /*
@@ -41,34 +46,58 @@ int
 dmm_fshm_create (struct dmm_share *share)
 {
   int fd, ret;
-  void *base;
+  void *base, *hint = (void *) DMM_MAIN_SHARE_BASE;
 
-  set_fshm_path (share);
+  if (share->type != DMM_SHARE_FSHM)
+    {
+      NSFW_LOGERR ("type error, type:%d", share->type);
+      return -1;
+    }
+
+  set_fshm_path (share->path, share->pid);
+
+  NSFW_LOGINF ("Start create share memory, path:'%s' size:%lu",
+               share->path, share->size);
 
   fd = open (share->path, O_RDWR | O_CREAT, 0666);
   if (fd < 0)
     {
+      NSFW_LOGERR ("Open file failed, path:'%s', errno=%d",
+                   share->path, errno);
       return -1;
     }
 
   ret = ftruncate (fd, share->size);
   if (ret < 0)
     {
-      (void) close (fd);
+      NSFW_LOGERR ("Set file size failed, path:'%s', errno=%d",
+                   share->path, errno);
+      (void) nsfw_base_close (fd);
       return -1;
     }
 
-  base = mmap (NULL, share->size,
-               PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, fd, 0);
+  base = mmap (hint, share->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (base == MAP_FAILED)
     {
-      (void) close (fd);
+      NSFW_LOGERR ("Map failed, path:'%s' size:%lu, errno=%d",
+                   share->path, share->size, errno);
+      (void) nsfw_base_close (fd);
+      return -1;
+    }
+  else if (hint && hint != MAP_FAILED && base != hint)
+    {
+      NSFW_LOGERR ("Map address failed, path:'%s' hint:%p size:%lu, base:%p",
+                   share->path, hint, share->size, base);
+      (void) munmap (base, share->size);
+      (void) nsfw_base_close (fd);
       return -1;
     }
 
   share->base = base;
 
-  (void) close (fd);
+  NSFW_LOGINF ("Share memory created, size:%lu, base=%p", share->size, base);
+
+  (void) nsfw_base_close (fd);
   return 0;
 }
 
@@ -91,14 +120,22 @@ dmm_fshm_attach (struct dmm_share *share)
   int fd;
   void *base;
 
+  NSFW_LOGINF ("Start attach, share:%p"
+               " {type:%d pid:%d base:%p size:%lu path:'%s'}",
+               share, share->type, share->pid,
+               share->base, share->size, share->path);
+
   if (share->type != DMM_SHARE_FSHM)
     {
+      NSFW_LOGERR ("type error, type:%d", share->type);
       return -1;
     }
 
   fd = open (share->path, O_RDWR);
   if (fd < 0)
     {
+      NSFW_LOGERR ("Open file failed, path:'%s', errno=%d",
+                   share->path, errno);
       return -1;
     }
 
@@ -107,16 +144,19 @@ dmm_fshm_attach (struct dmm_share *share)
       share->size = dmm_file_size (fd);
       if (share->size == 0)
         {
-          (void) close (fd);
+          NSFW_LOGERR ("No file size '%s'", share->path);
+          (void) nsfw_base_close (fd);
           return -1;
         }
     }
 
-  base = mmap (share->base, share->size,
-               PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE, fd, 0);
+  base = mmap (share->base, share->size, PROT_READ | PROT_WRITE,
+               MAP_SHARED, fd, 0);
   if (base == MAP_FAILED)
     {
-      (void) close (fd);
+      NSFW_LOGERR ("Map failed, path:'%s' base:%p size:%lu, errno=%d",
+                   share->path, share->base, share->size, errno);
+      (void) nsfw_base_close (fd);
       return -1;
     }
 
@@ -126,12 +166,16 @@ dmm_fshm_attach (struct dmm_share *share)
     }
   else if (base != share->base)
     {
+      NSFW_LOGERR ("Map address error, path:'%s' share->base:%p, base:%p",
+                   share->path, share->base, base);
       (void) munmap (base, share->size);
-      (void) close (fd);
+      (void) nsfw_base_close (fd);
       return -1;
     }
 
-  (void) close (fd);
+  NSFW_LOGINF ("Memory attached, base=%p", base);
+
+  (void) nsfw_base_close (fd);
   return 0;
 }
 

@@ -26,6 +26,8 @@ extern "C"{
 /* *INDENT-ON* */
 #endif /* __cplusplus */
 
+#include "types.h"
+
 #define NSFW_MGR_COM_MODULE "nsfw_mgr_com"
 
 #define MRG_RSP(_req_msg) (_req_msg + MGR_MSG_RSP_BASE)

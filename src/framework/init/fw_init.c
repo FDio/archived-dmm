@@ -245,6 +245,43 @@ nstack_framework_printInitialResult ()
     NSFW_LOGINF ("All modules are inited");
 }
 
+static void
+nstack_framework_print_list ()
+{
+  nsfw_module_manager_t *manager = nsfw_module_getManager ();
+  nsfw_module_instance_t *inst;
+
+  for (inst = manager->inst; inst; inst = inst->next)
+    {
+      char deps[512];
+      nsfw_module_depends_t *depends;
+
+      if (inst->depends)
+        {
+          int depn = 0;
+
+          for (depends = inst->depends; depends; depends = depends->next)
+            {
+              int len = snprintf (&deps[depn], sizeof (deps) - depn,
+                                  "%s", depends->name);
+              if (len < 0)
+                {
+                  break;
+                }
+              depn += len;
+            }
+          deps[sizeof (deps) - 1] = 0;
+        }
+      else
+        {
+          (void) snprintf (deps, sizeof (deps), "{null}");
+        }
+
+      NSFW_LOGDBG ("module: %s father: %s priority: %d depends: %s",
+                   inst->name, inst->fatherName, inst->priority, deps);
+    }
+}
+
 /**
  * @Function        nstack_framework_init
  * @Description     This function will do framework initial work, it will invoke all initial functions
@@ -270,6 +307,8 @@ nstack_framework_init (void)
     {
       goto done;
     }
+
+  nstack_framework_print_list ();
 
   ret = nstack_framework_initChild_unsafe (NULL);
 

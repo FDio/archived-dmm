@@ -19,15 +19,40 @@
 #include <stdarg.h>
 #include "dmm_share.h"
 #include "dmm_segment.h"
+#include "dmm_ring.h"
 
-int dmm_mem_main_init ();
-int dmm_mem_main_exit ();
-
-int dmm_mem_app_init ();
-int dmm_mem_app_exit ();
+#define DMM_MEMORY_MODULE "DMM_MEMORY_MODULE"
 
 extern struct dmm_segment *main_seg;
 extern struct dmm_segment *base_seg;
+
+inline static void
+dmm_lock_map ()
+{
+  dmm_seg_lock (base_seg);
+}
+
+inline static void
+dmm_unlock_map ()
+{
+  dmm_seg_unlock (base_seg);
+}
+
+inline static int
+dmm_unmap (void *mem)
+{
+  return dmm_mem_unmap (base_seg, mem);
+}
+
+inline static void *
+dmm_locked_map (size_t size, const char name[DMM_MEM_NAME_SIZE])
+{
+  void *mem;
+  dmm_lock_map ();
+  mem = dmm_mem_map (base_seg, size, name);
+  dmm_unlock_map ();
+  return mem;
+}
 
 inline static void *
 dmm_map (size_t size, const char name[DMM_MEM_NAME_SIZE])
@@ -74,5 +99,25 @@ dmm_lookupv (const char *name_fmt, ...)
 
   return dmm_mem_lookup (base_seg, name);
 }
+
+int dmm_mem_main_init ();
+int dmm_mem_main_exit ();
+int dmm_mem_app_init ();
+int dmm_mem_app_exit ();
+
+struct dmm_ring *dmm_create_ring (int num, int flag,
+                                  const char name[DMM_MEM_NAME_SIZE]);
+
+struct dmm_ring *dmm_attach_ring (const char name[DMM_MEM_NAME_SIZE]);
+
+struct dmm_ring *dmm_malloc_ring (int num, int flag);
+
+struct dmm_ring *dmm_create_pool (size_t elt_size, int num, int flag,
+                                  const char name[DMM_MEM_NAME_SIZE]);
+
+struct dmm_ring *dmm_attach_pool (const char name[DMM_MEM_NAME_SIZE]);
+
+/* allocate pool from heap */
+struct dmm_ring *dmm_malloc_pool (size_t elt_size, int num, int flag);
 
 #endif /* _DMM_MEMORY_H_ */

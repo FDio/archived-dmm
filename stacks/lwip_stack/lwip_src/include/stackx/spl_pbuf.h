@@ -22,6 +22,7 @@
 #include "common_mem_base_type.h"
 #include "stackx_pbuf_comm.h"
 #include "common_mem_mbuf.h"
+#include "common_mem_api.h"
 
 #ifdef HAL_LIB
 #else

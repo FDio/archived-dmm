@@ -19,9 +19,7 @@
 
 #include <stdio.h>
 #include "types.h"
-#include "common_mem_pal.h"
-#include "common_mem_buf.h"
-#include "common_pal_bitwide_adjust.h"
+
 #ifdef __cplusplus
 /* *INDENT-OFF* */
 extern "C" {
@@ -48,21 +46,22 @@ struct ep_hlist
 
 #define ep_hlist_entry(ptr, type, member) container_of(ptr, type, member)
 
-#define EP_HLIST_INIT_NODE(node) {\
+#define EP_HLIST_INIT_NODE(node) do {\
             (node)->next = NULL;\
             (node)->pprev = NULL; \
-        }
+        } while (0)
 
-#define EP_HLIST_INIT(ptr) {\
-            EP_HLIST_INIT_NODE(&((ptr)->node)); \
-            (ptr)->head = (struct ep_hlist_node*)ADDR_LTOSH_EXT(&((ptr)->node)); \
-            (ptr)->tail = (struct ep_hlist_node*)ADDR_LTOSH_EXT(&((ptr)->node)); \
-        }
+#define EP_HLIST_INIT(ptr) do {\
+            struct ep_hlist *_ptr = (ptr); \
+            EP_HLIST_INIT_NODE(&_ptr->node); \
+            _ptr->head = &_ptr->node; \
+            _ptr->tail = &_ptr->node; \
+        } while (0)
 
-#define EP_HLIST_PREV(ptr) ((struct ep_hlist_node*)(ADDR_SHTOL((ptr)->pprev)))
+#define EP_HLIST_PREV(ptr) ((struct ep_hlist_node*)((ptr)->pprev))
 /* list check may below zero check header, because if app crash before
    do list->size++, it will lead problem */
-#define EP_HLIST_EMPTY(list) (NULL == ((struct ep_hlist_node*)ADDR_SHTOL((list)->head))->next)
+#define EP_HLIST_EMPTY(list) (NULL == ((struct ep_hlist_node*)((list)->head))->next)
 #define EP_HLIST_NODE_LINKED(node) (!(!(node)->pprev))
 
 static __inline void ep_hlist_del (struct ep_hlist *list,
@@ -81,7 +80,7 @@ ep_hlist_del (struct ep_hlist *list, struct ep_hlist_node *n)
   EP_HLIST_PREV (n)->next = n->next;
   if (n->next)
     {
-      ((struct ep_hlist_node *) ADDR_SHTOL (n->next))->pprev = n->pprev;
+      ((struct ep_hlist_node *) (n->next))->pprev = n->pprev;
     }
   else
     {
@@ -96,12 +95,11 @@ ep_hlist_del (struct ep_hlist *list, struct ep_hlist_node *n)
 static __inline void
 ep_hlist_add_tail (struct ep_hlist *list, struct ep_hlist_node *node)
 {
-  struct ep_hlist_node *tail =
-    (struct ep_hlist_node *) ADDR_SHTOL (list->tail);
+  struct ep_hlist_node *tail = (struct ep_hlist_node *) (list->tail);
   EP_HLIST_INIT_NODE (node);
-  node->pprev = (struct ep_hlist_node **) ADDR_LTOSH_EXT (&tail->next);
-  tail->next = (struct ep_hlist_node *) ADDR_LTOSH_EXT (node);
-  list->tail = (struct ep_hlist_node *) ADDR_LTOSH_EXT (node);
+  node->pprev = (struct ep_hlist_node **) (&tail->next);
+  tail->next = (struct ep_hlist_node *) (node);
+  list->tail = (struct ep_hlist_node *) (node);
 }
 
 /*#########################################################*/
@@ -124,10 +122,10 @@ struct ep_list
 
 #define EP_LIST_INIT(ptr) {\
             EP_LIST_INIT_NODE(&((ptr)->node)); \
-            (ptr)->head = (struct list_node*)ADDR_LTOSH_EXT(&((ptr)->node)); \
+            (ptr)->head = (struct list_node*)(&((ptr)->node)); \
         }
 
-#define EP_LIST_EMPTY(list) (NULL == ((struct list_node*)ADDR_SHTOL((list)->head))->next)
+#define EP_LIST_EMPTY(list) (NULL == ((struct list_node*)((list)->head))->next)
 
 static __inline void ep_list_del (struct ep_list *list, struct list_node *n);
 static __inline void ep_list_add_tail (struct ep_list *list,
@@ -146,11 +144,11 @@ ep_list_del (struct ep_list *list, struct list_node *n)
 
   struct list_node *p_node;
   struct list_node *p_prev = NULL;
-  p_node = ((struct list_node *) ADDR_SHTOL (list->head));
+  p_node = ((struct list_node *) (list->head));
   while (NULL != p_node && p_node != n)
     {
       p_prev = p_node;
-      p_node = ((struct list_node *) ADDR_SHTOL (p_node->next));
+      p_node = ((struct list_node *) (p_node->next));
     }
 
   if (p_node != n || p_prev == NULL)
@@ -173,11 +171,11 @@ ep_list_add_tail (struct ep_list *list, struct list_node *node)
 
   struct list_node *p_node;
   struct list_node *p_prev = NULL;
-  p_node = ((struct list_node *) ADDR_SHTOL (list->head));
+  p_node = ((struct list_node *) (list->head));
   while (NULL != p_node)
     {
       p_prev = p_node;
-      p_node = ((struct list_node *) ADDR_SHTOL (p_node->next));
+      p_node = ((struct list_node *) (p_node->next));
     }
 
   if (NULL == p_prev)
@@ -186,7 +184,7 @@ ep_list_add_tail (struct ep_list *list, struct list_node *node)
     }
 
   EP_LIST_INIT_NODE (node);
-  p_prev->next = (struct list_node *) ADDR_LTOSH_EXT (node);
+  p_prev->next = (struct list_node *) (node);
   return;
 }
 

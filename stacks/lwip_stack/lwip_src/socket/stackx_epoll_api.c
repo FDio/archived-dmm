@@ -30,7 +30,7 @@ void
 epoll_triggle_event_from_api (sbr_socket_t * sock, int op)
 {
   struct spl_netconn *conn = sbr_get_conn (sock);
-  void *epInfo = ADDR_SHTOL (conn->epInfo);
+  void *epInfo = conn->epInfo;
   //NSPOL_LOGDBG(SOCKETS_DEBUG, "enter]fd=%d,op=%d", sock, op);
   switch (op)
     {

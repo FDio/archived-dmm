@@ -22,7 +22,6 @@
 #include "nsfw_mgr_com_api.h"
 #include "nsfw_ps_api.h"
 #include "nsfw_ps_module.h"
-#include "nsfw_mem_api.h"
 #include "nstack_log.h"
 #include "nsfw_base_linux_api.h"
 #include "nsfw_fd_timer_api.h"
@@ -39,7 +38,7 @@
 #include <linux/netlink.h>
 #include <dirent.h>
 #include <fnmatch.h>
-#include "common_mem_common.h"
+#include "dmm_memory.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -259,7 +258,7 @@ nsfw_ps_info *
 nsfw_ps_info_alloc (u32 pid, u8 proc_type)
 {
   nsfw_ps_info *pps_info = NULL;
-  if (0 == nsfw_mem_ring_dequeue (g_ps_cfg.ps_info_pool, (void *) &pps_info))
+  if (1 != dmm_dequeue (g_ps_cfg.ps_info_pool, (void **) &pps_info))
     {
       NSFW_LOGERR ("alloc ps_info failed]pid=%u,type=%u", pid, proc_type);
       return NULL;
@@ -397,7 +396,7 @@ nsfw_ps_info_free (nsfw_ps_info * ps_info)
                ps_info->host_pid, ps_info->state);
   if (ps_info != &g_main_ps_info)
     {
-      if (0 == nsfw_mem_ring_enqueue (g_ps_cfg.ps_info_pool, ps_info))
+      if (1 != dmm_enqueue (g_ps_cfg.ps_info_pool, ps_info))
         {
           NSFW_LOGERR ("ps_info free failed]ps_info=%p,pid=%u,state=%u",
                        ps_info, ps_info->host_pid, ps_info->state);
@@ -1554,6 +1553,8 @@ nsfw_ps_cfg_set_chk_count (u16 count)
   g_ps_cfg.ps_chk_hbt_count = count;
 }
 
+#define MAS_PS_INFO_NAME "MAS_PS_INFO"
+
 /*****************************************************************************
 *   Prototype    : nsfw_ps_module_init
 *   Description  : ps_module init
@@ -1566,6 +1567,7 @@ nsfw_ps_cfg_set_chk_count (u16 count)
 int
 nsfw_ps_module_init (void *param)
 {
+  size_t length;
   u32 proc_type = (u32) ((long long) param);
   nsfw_ps_init_cfg *ps_cfg = &g_ps_cfg;
   int retval;
@@ -1576,17 +1578,7 @@ nsfw_ps_module_init (void *param)
   ps_cfg->ps_chk_hbt_tvalue = NSFW_CHK_HBT_TVLAUE_DEF;
   ps_cfg->ps_chk_hbt_soft_count = ps_cfg->ps_chk_hbt_count;
 
-  nsfw_mem_zone pzoneinfo;
-  pzoneinfo.isocket_id = NSFW_SOCKET_ANY;
-  pzoneinfo.stname.entype = NSFW_SHMEM;
-  pzoneinfo.length = sizeof (nsfw_pid_item) * NSFW_MAX_PID;
-  if (-1 ==
-      SPRINTF_S (pzoneinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 "MAS_PS_INFO"))
-    {
-      NSFW_LOGERR ("SPRINTF_S failed]");
-      return -1;
-    }
+  length = sizeof (nsfw_pid_item) * NSFW_MAX_PID;
 
   switch (proc_type)
     {
@@ -1611,8 +1603,7 @@ nsfw_ps_module_init (void *param)
 
         g_ps_info = pid_info;
 
-        pzoneinfo.stname.enowner = NSFW_PROC_MAIN;
-        pid_info = nsfw_mem_zone_create (&pzoneinfo);
+        pid_info = dmm_locked_map (length, MAS_PS_INFO_NAME);
         if (NULL == pid_info)
           {
             NSFW_LOGERR ("create pid_info failed!");
@@ -1632,30 +1623,17 @@ nsfw_ps_module_init (void *param)
 
   INIT_LIST_HEAD (&(g_ps_runing_list));
 
-  nsfw_mem_sppool pmpinfo;
-  pmpinfo.enmptype = NSFW_MRING_MPMC;
-  pmpinfo.usnum = ps_cfg->ps_info_size;
-  pmpinfo.useltsize = sizeof (nsfw_ps_info);
-  pmpinfo.isocket_id = NSFW_SOCKET_ANY;
-  pmpinfo.stname.entype = NSFW_NSHMEM;
-  if (-1 ==
-      SPRINTF_S (pmpinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 "MAS_PS_INFOPOOL"))
-    {
-      NSFW_LOGERR ("SPRINTF_S failed]");
-      return -1;
-    }
-
-  ps_cfg->ps_info_pool = nsfw_mem_sp_create (&pmpinfo);
-
+  ps_cfg->ps_info_pool = dmm_malloc_pool (sizeof (nsfw_ps_info),
+                                          ps_cfg->ps_info_size,
+                                          DMM_RING_INIT_MPMC);
   if (!ps_cfg->ps_info_pool)
     {
       NSFW_LOGERR ("alloc ps info pool_err");
       return -1;
     }
 
-  MEM_STAT (NSFW_PS_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
-            nsfw_mem_get_len (ps_cfg->ps_info_pool, NSFW_MEM_SPOOL));
+//  MEM_STAT (NSFW_PS_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
+//            nsfw_mem_get_len (ps_cfg->ps_info_pool, NSFW_MEM_SPOOL));
 
   if (NSFW_PROC_MAIN != proc_type)
     {
@@ -1677,7 +1655,7 @@ nsfw_ps_module_init (void *param)
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME (NSFW_PS_MODULE)
-NSFW_MODULE_PRIORITY (10)
+NSFW_MODULE_PRIORITY (40)
 NSFW_MODULE_DEPENDS (NSFW_MGR_COM_MODULE)
 NSFW_MODULE_DEPENDS (NSFW_TIMER_MODULE)
 NSFW_MODULE_INIT (nsfw_ps_module_init)

@@ -33,15 +33,12 @@ extern "C" {
 
 #ifndef NULL
 #define NULL ((void *)0)
-#endif /*
-        */
+#endif
 
 /*define error code*/
 #ifndef errno_t
 typedef int errno_t;
-
-#endif /*
-        */
+#endif
 
 /* success */
 #define EOK (0)
@@ -49,8 +46,7 @@ typedef int errno_t;
 /* invalid parameter */
 #ifndef EINVAL
 #define EINVAL (22)
-#endif /*
-        */
+#endif
 
 #define EINVAL_AND_RESET  (22 | 0X80)
 #define ERANGE_AND_RESET  (34 | 0X80)
@@ -136,6 +132,7 @@ typedef int errno_t;
 #define   WCSTOK_S(a, b, c)              wcstok_s(a, b, c)
 #define   GETS_S(a, b)                   gets_s(a, b)
 #endif /*  */
+
 #ifdef __cplusplus
 /* *INDENT-OFF* */
 }

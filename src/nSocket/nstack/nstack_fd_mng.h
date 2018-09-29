@@ -18,15 +18,12 @@
 #define __NSTACK_FD_MNG_H__
 
 #include <semaphore.h>
-#include "nstack_atomic.h"
 
 #include "types.h"
 #include "nstack_module.h"
 #include "nstack_types.h"
 #include "nstack_eventpoll.h"
-#include "common_mem_spinlock.h"
-#include "common_mem_api.h"
-#include "common_func.h"
+#include "dmm_spinlock.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -114,8 +111,8 @@ typedef struct
 
 typedef struct
 {
-  atomic_t fd_ref;
-  common_mem_spinlock_t close_lock;
+  dmm_atomic_t fd_ref;
+  dmm_spinlock_t close_lock;
   volatile int fd_status;
 } nstack_fd_local_lock_info_t;
 /*

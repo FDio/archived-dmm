@@ -31,8 +31,6 @@ extern "C"{
 
 #define NSFW_MEM_STAT_NUM  512
 
-#define NSFW_MEM_STAT_MODULE "nsfw_mem_stat_module"
-
 typedef struct _nsfw_mem_stat
 {
   u8 mem_type;
@@ -281,7 +279,7 @@ nsfw_mem_stat_init (void *param)
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME (NSFW_MEM_STAT_MODULE)
-NSFW_MODULE_PRIORITY (99)
+NSFW_MODULE_PRIORITY (20)
 NSFW_MODULE_INIT (nsfw_mem_stat_init)
 /* *INDENT-ON* */
 

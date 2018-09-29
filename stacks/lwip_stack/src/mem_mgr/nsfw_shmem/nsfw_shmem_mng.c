@@ -37,10 +37,6 @@
 #define NSFW_SHMEM_PID    (get_sys_pid())
 #define NSFW_SHMEM_FLAG   (g_shmem_localdata->enflag)
 
-/* app_mode 1: simple stack with APP*/
-extern u8 app_mode;
-u8 app_mode = 0;
-
 nsfw_mem_localdata *g_shmem_localdata = NULL;
 
 /*check g_mem_localdata*/
@@ -75,13 +71,13 @@ nsfw_shmem_init (nsfw_mem_para * para)
 
   if (NSFW_PROC_MAIN == para->enflag)
     {
-      iret = common_pal_module_init (NULL, app_mode);
+      iret = common_pal_module_init (NULL);
     }
   else
     {
       LCORE_MASK_SET (rteinfo.ilcoremask, 1);
       rteinfo.ucproctype = DMM_PROC_T_SECONDARY;
-      iret = common_pal_module_init (&rteinfo, app_mode);
+      iret = common_pal_module_init (&rteinfo);
     }
 
   if (NSFW_MEM_OK != iret)

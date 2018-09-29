@@ -26,11 +26,13 @@
 #ifndef _NSFW_MGRCOM_MODULE_H
 #define _NSFW_MGRCOM_MODULE_H
 
-#include "pthread.h"
-#include "nsfw_mem_api.h"
-#include "common_mem_api.h"
-#include "common_mem_memzone.h"
-#include "common_func.h"
+#include <pthread.h>
+
+#include "types.h"
+#include "nsfw_mgr_com_api.h"
+
+#include "dmm_ring.h"
+#include "dmm_spinlock.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -44,7 +46,7 @@ extern "C"{
 
 #define MAX_RECV_BUF_DEF         0x34000*2
 
-#define MGR_COM_MSG_COUNT_DEF 1023      /*g_mgr_com_cfg */
+#define MGR_COM_MSG_COUNT_DEF 1024      /*g_mgr_com_cfg */
 #define MGR_COM_RECV_TIMEOUT_DEF 5
 #define MGR_COM_MAX_DROP_MSG_DEF 1024
 
@@ -64,9 +66,9 @@ typedef struct _nsfw_mgr_init_cfg
   u8 max_recv_timeout;
   u16 max_recv_drop_msg;
   u32 msg_size;
-  common_mem_atomic32_t cur_idx;
+  int cur_idx;
   u64 u64reserve;
-  mring_handle msg_pool;
+  struct dmm_ring *msg_pool;
   char domain_path[NSFW_MGRCOM_PATH_LEN];
 } nsfw_mgr_init_cfg;
 
@@ -85,7 +87,7 @@ typedef struct _nsfw_mgr_sock_info
 {
   u8 proc_type;       /*_ns_poc_type*/
   u32 host_pid;
-  common_mem_spinlock_t opr_lock;
+  dmm_spinlock_t opr_lock;
 } nsfw_mgr_sock_info;
 
 typedef struct _nsfw_mgr_sock_map
@@ -123,14 +125,14 @@ u8 nsfw_mgr_stop ();
 #define LOCK_MGR_FD(_fd){\
     if ((i32)NSFW_MGR_FD_MAX > _fd)\
     {\
-        common_mem_spinlock_lock(&g_mgr_socket_map.sock[_fd].opr_lock);\
+        dmm_spin_lock(&g_mgr_socket_map.sock[_fd].opr_lock);\
     }\
 }
 
 #define UNLOCK_MGR_FD(_fd){\
     if ((i32)NSFW_MGR_FD_MAX > _fd)\
     {\
-        common_mem_spinlock_unlock(&g_mgr_socket_map.sock[_fd].opr_lock);\
+        dmm_spin_unlock(&g_mgr_socket_map.sock[_fd].opr_lock);\
     }\
 }
 

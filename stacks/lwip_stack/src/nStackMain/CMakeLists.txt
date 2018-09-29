@@ -25,14 +25,15 @@ TARGET_LINK_LIBRARIES(
     -Wl,--whole-archive
     ${LIB_PATH_STATIC}/libjson-c.a
     ${LIB_PATH_STATIC}/libglog.a
-    dmm_api
     nStackMaintain
     stacklwip
     nStackHal
     nStackAlarm
     nTcpdump
+    mem_mgr
     -Wl,--no-whole-archive,-lstdc++ -ldl
     -Wl,--no-as-needed
+    dmm_api
 	rte_eal
     rte_ethdev
     rte_mempool
@@ -48,9 +49,9 @@ TARGET_LINK_LIBRARIES(
 )
 
 if(WITH_SECUREC_LIB)
-ADD_DEPENDENCIES(nStackMain nStackHal nStackMaintain nStackAlarm stacklwip SECUREC)
+ADD_DEPENDENCIES(nStackMain nStackHal nStackMaintain nStackAlarm mem_mgr stacklwip SECUREC)
 else()
-ADD_DEPENDENCIES(nStackMain nStackHal nStackMaintain nStackAlarm stacklwip)
+ADD_DEPENDENCIES(nStackMain nStackHal nStackMaintain nStackAlarm mem_mgr stacklwip)
 endif()
 
 INCLUDE_DIRECTORIES(

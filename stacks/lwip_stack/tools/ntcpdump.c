@@ -28,6 +28,7 @@
 #include "nsfw_fd_timer_api.h"
 #include "nsfw_maintain_api.h"
 #include "nstack_securec.h"
+#include "mgr_com.h"
 
 #include "tool_common.h"
 

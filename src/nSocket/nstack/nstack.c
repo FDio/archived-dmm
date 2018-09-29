@@ -20,15 +20,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "common_mem_buf.h"
-#include "common_mem_api.h"
 #include "nstack_eventpoll.h"
 #include "nstack_socket.h"
 #include "nstack_securec.h"
 #include "nsfw_init.h"
 #include "nstack_share_res.h"
 #include "nsfw_mgr_com_api.h"
-#include "nsfw_ps_mem_api.h"
 #include "nsfw_fd_timer_api.h"
 #include "nsfw_ps_api.h"
 #include "nsfw_recycle_api.h"
@@ -38,7 +35,9 @@
 #include "nstack_rd.h"
 #include "nstack_module.h"
 #include "nstack_select.h"
-#include "common_func.h"
+
+#include "dmm_memory.h"
+#include "dmm_sys.h"
 
 #define NSTACK_EVENT_MEN_MAXLEN  (sizeof(struct eventpoll_pool) + NSTACK_MAX_EPOLL_NUM * sizeof(struct eventpoll_entry))
 #define NSTACK_EPITEM_MEN_MAXLEN  (sizeof(struct epitem_pool) + NSTACK_MAX_EPITEM_NUM *sizeof(struct epitem_entry))
@@ -50,14 +49,12 @@ nStack_info_t g_nStackInfo = {
                                 .load_mutex = PTHREAD_MUTEX_INITIALIZER,
                                 .lk_sockPoll = NULL,
                                 .pid = 0,
-                                .fork_lock = {0},
+                                .fork_lock = DMM_RWLOCK_INIT,
                                 .ikernelfdmax = NSTACK_MAX_SOCK_NUM,
                                 };
 
 /*if this flag was set, maybe all socket interface called during initializing*/
 __thread int g_tloadflag = 0;
-
-extern u8 app_mode;
 
 /*check init stack*/
 #define NSTACK_INIT_STATE_CHECK_RET(state)  do {\
@@ -376,8 +373,7 @@ NSTACK_STATIC inline void
 check_main_version ()
 {
   char my_version[NSTACK_VERSION_LEN] = { 0 };
-  nsfw_mem_name stname = { NSFW_SHMEM, NSFW_PROC_MAIN, {NSTACK_VERSION_SHM} };
-  g_nStackInfo.nstack_version = nsfw_mem_zone_lookup (&stname);
+  g_nStackInfo.nstack_version = dmm_lookup(NSTACK_VERSION_SHM);
 
   if (NULL == g_nStackInfo.nstack_version)
     {
@@ -482,22 +478,22 @@ nstack_init_mem (void)
 void
 nstack_fork_fd_local_lock_info (nstack_fd_local_lock_info_t * local_lock)
 {
-  if (local_lock->fd_ref.counter > 1)    /* after fork, if fd ref > 1, need set it to 1 */
+  if (local_lock->fd_ref.cnt > 1)    /* after fork, if fd ref > 1, need set it to 1 */
     {
-      local_lock->fd_ref.counter = 1;
+      local_lock->fd_ref.cnt = 1;
     }
-  common_mem_spinlock_init (&local_lock->close_lock);
+  dmm_spin_init (&local_lock->close_lock);
 }
 
 void
 nstack_reset_fd_local_lock_info (nstack_fd_local_lock_info_t * local_lock)
 {
-  atomic_set (&local_lock->fd_ref, 0);
-  common_mem_spinlock_init (&local_lock->close_lock);
+  dmm_atomic_set (&local_lock->fd_ref, 0);
+  dmm_spin_init (&local_lock->close_lock);
   local_lock->fd_status = FD_CLOSE;
 }
 
-common_mem_rwlock_t *
+dmm_rwlock_t *
 get_fork_lock ()
 {
   return &g_nStackInfo.fork_lock;
@@ -674,11 +670,11 @@ int nstack_stack_module_load()
     NSTACK_INIT_STATE_CHECK_RET(g_nStackInfo.moduleload);
 
     /*lock for fork*/
-    common_mem_rwlock_read_lock(get_fork_lock());
+    dmm_read_lock(get_fork_lock());
 
     if (pthread_mutex_lock(&g_nStackInfo.load_mutex)){
         NSSOC_LOGERR("nstack mutex lock fail");
-        common_mem_rwlock_read_unlock(get_fork_lock());
+        dmm_read_unlock(get_fork_lock());
         return -1;
     }
 
@@ -700,14 +696,14 @@ int nstack_stack_module_load()
 
     NSTACK_THREAD_LOAD_UNSET();
     g_nStackInfo.moduleload = NSTACK_MODULE_SUCCESS;
-    common_mem_rwlock_read_unlock(get_fork_lock());
+    dmm_read_unlock(get_fork_lock());
     pthread_mutex_unlock(&g_nStackInfo.load_mutex);
     return 0;
 
 LOAD_FAIL:
     g_nStackInfo.moduleload = NSTACK_MODULE_FAIL;
     NSTACK_THREAD_LOAD_UNSET();
-    common_mem_rwlock_read_unlock(get_fork_lock());
+    dmm_read_unlock(get_fork_lock());
     pthread_mutex_unlock(&g_nStackInfo.load_mutex);
     return -1;
 }
@@ -748,7 +744,6 @@ nstack_app_init (void *ppara)
 int
 nstack_fw_init ()
 {
-
   int ret = ns_fail;
 
   if (NSTACK_MODULE_SUCCESS == g_nStackInfo.fwInited)
@@ -768,44 +763,45 @@ nstack_fw_init ()
          return -1;
       }
 
-      common_mem_rwlock_read_lock (get_fork_lock ());
+      dmm_read_lock (get_fork_lock ());
       updata_sys_pid ();
       u8 proc_type = NSFW_PROC_APP;
-      nsfw_mem_para stinfo = { 0 };
 
       int deploytype = nstack_get_deploy_type();
 
       if (deploytype == NSTACK_MODEL_TYPE1)
       {
          proc_type  = NSFW_PROC_MAIN;
-      }else if (deploytype == NSTACK_MODEL_TYPE_SIMPLE_STACK)
+      }
+      else if (deploytype == NSTACK_MODEL_TYPE_SIMPLE_STACK)
       {
          proc_type  = NSFW_PROC_MAIN;
-         app_mode=1;
       }
 
-      stinfo.iargsnum = 0;
-      stinfo.pargs = NULL;
-      stinfo.enflag = (fw_poc_type)proc_type;
-      nstack_framework_setModuleParam(NSFW_MEM_MGR_MODULE, (void*)&stinfo);
-      nstack_framework_setModuleParam(NSFW_MGR_COM_MODULE, (void*) ((long long)proc_type));
-      nstack_framework_setModuleParam(NSFW_TIMER_MODULE, (void*) ((long long)proc_type));
-      nstack_framework_setModuleParam(NSFW_PS_MODULE,     (void*) ((long long)proc_type));
-      nstack_framework_setModuleParam(NSFW_PS_MEM_MODULE, (void*) ((long long)proc_type));
-      nstack_framework_setModuleParam(NSFW_RECYCLE_MODULE, (void*) ((long long)proc_type));
+      (void) nstack_framework_setModuleParam (DMM_MEMORY_MODULE,
+                                              (void *) ((u64) NSFW_PROC_APP));
+
+      nstack_framework_setModuleParam(NSFW_MGR_COM_MODULE,
+                                      (void*) ((long long)proc_type));
+      nstack_framework_setModuleParam(NSFW_TIMER_MODULE,
+                                      (void*) ((long long)proc_type));
+      nstack_framework_setModuleParam(NSFW_PS_MODULE,
+                                      (void*) ((long long)proc_type));
+      nstack_framework_setModuleParam(NSFW_RECYCLE_MODULE,
+                                      (void*) ((long long)proc_type));
       NSTACK_THREAD_LOAD_SET();
       ret = nstack_framework_init();
 
       if (ns_success == ret)
       {
-          g_nStackInfo.fwInited = NSTACK_MODULE_SUCCESS;
+        g_nStackInfo.fwInited = NSTACK_MODULE_SUCCESS;
       }
       else
       {
-          g_nStackInfo.fwInited = NSTACK_MODULE_FAIL;
+        g_nStackInfo.fwInited = NSTACK_MODULE_FAIL;
       }
       NSTACK_THREAD_LOAD_UNSET();
-      common_mem_rwlock_read_unlock(get_fork_lock());
+      dmm_read_unlock(get_fork_lock());
     }
 
   return ret;

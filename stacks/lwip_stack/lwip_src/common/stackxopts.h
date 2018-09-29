@@ -17,6 +17,8 @@
 #ifndef STACKX_OPTS_H
 #define STACKX_OPTS_H
 
+#include "types.h"
+
 struct memory_statics
 {
   char name[120];

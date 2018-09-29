@@ -14,15 +14,7 @@
 # limitations under the License.
 #########################################################################
 
-SET(RTP_DIRECTORIES "${PROJECT_SOURCE_DIR}/src/include/")
-
 INCLUDE_DIRECTORIES(
-	framework/log/
-	framework/include/
-	framework/common/include/
-	framework/common/base/include/
-	${RTP_DIRECTORIES}
-	${RTP_DIRECTORIES}/generic
 	../../SecureC/include/
 	../../../thirdparty/glog/glog-0.3.4/src/
 )
@@ -33,17 +25,10 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fstack-protector -fstack-protector-all")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,relro,-z,now -Wl,--disable-new-dtags,--rpath,../lib64")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack -mcmodel=medium")
 
-if(WITH_HAL_LIB)
-SET(RTP_CONFIG ${PROJECT_SOURCE_DIR}/src/include/rtp_config.h)
-else()
-    SET(RTP_CONFIG ${CMAKE_CURRENT_LIST_DIR}/../../../src/framework/common/base/include/common/common_sys_config.h)
-endif()
-SET(COMPLE_CONFIG ${PROJECT_SOURCE_DIR}/src/include/compile_config.h)
 ADD_DEFINITIONS(-include ${RTP_CONFIG})
 ADD_DEFINITIONS(-include ${COMPLE_CONFIG})
 ADD_DEFINITIONS(-D_GNU_SOURCE)
 ADD_DEFINITIONS(-DDPDK_MODULE=0)
-#ADD_DEFINITIONS(-DNSTACK_RSRDMA)
 LINK_DIRECTORIES(${LIB_PATH_SHARED} ${LIB_PATH_STATIC})
 
 if(WITH_SECUREC_LIB)
@@ -52,6 +37,7 @@ else()
 LINK_LIBRARIES(pthread dl)
 endif()
 
+ADD_SUBDIRECTORY(mem_mgr)
 ADD_SUBDIRECTORY(maintain)
 ADD_SUBDIRECTORY(io_adpt)
 ADD_SUBDIRECTORY(sbr)

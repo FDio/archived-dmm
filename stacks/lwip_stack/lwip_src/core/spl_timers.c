@@ -20,7 +20,7 @@
 #include "sc_dpdk.h"
 #include "nstack_log.h"
 #include "nstack_securec.h"
-#include "nstack_share_res.h"
+#include "global_tick.h"
 
 #include <time.h>
 #include <signal.h>

@@ -25,6 +25,7 @@
 #define _GNU_SOURCE             /* define RTLD_NEXT */
 #endif
 
+#include <errno.h>
 #include <dlfcn.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -34,7 +35,6 @@
 #include "nstack_dmm_api.h"
 #include "nstack_sockops.h"
 #include "nstack_module.h"
-#include "common_mem_spinlock.h"
 #include "nstack_securec.h"
 #include "nsfw_init.h"
 #include "nsfw_recycle_api.h"
@@ -44,6 +44,9 @@
 #include "select_adapt.h"
 #include "nstack_select.h"
 #include "nstack_share_res.h"
+
+#include "dmm_sys.h"
+
 #ifndef F_SETFL
 #define    F_SETFL        4
 #endif
@@ -116,7 +119,7 @@ set_fd_status (int fd, FD_STATUS status)
     {
       if (FD_OPEN == status)
         {
-          atomic_inc (&local_lock->fd_ref);
+          dmm_atomic_inc (&local_lock->fd_ref);
         }
       local_lock->fd_status = status;
     }
@@ -125,9 +128,9 @@ set_fd_status (int fd, FD_STATUS status)
 void
 set_fd_status_lock_fork (int fd, FD_STATUS status)
 {
-  common_mem_rwlock_read_lock (get_fork_lock ());
+  dmm_read_lock (get_fork_lock ());
   set_fd_status (fd, status);
-  common_mem_rwlock_read_unlock (get_fork_lock ());
+  dmm_read_unlock (get_fork_lock ());
 }
 
 /*****************************************************************
@@ -999,7 +1002,7 @@ release_fd (int fd, nstack_fd_local_lock_info_t * local_lock)
   LOCK_CLOSE (local_lock);
 
   /* if fd is used by others, just pass, delay close it */
-  if (local_lock->fd_status != FD_CLOSING || local_lock->fd_ref.counter > 0)
+  if (local_lock->fd_status != FD_CLOSING || local_lock->fd_ref.cnt > 0)
     {
       UNLOCK_CLOSE (local_lock);
       return 0;
@@ -1112,8 +1115,10 @@ nstack_close (int fd)
   set_fd_status_lock_fork (fd, FD_CLOSING);
 
   UNLOCK_CLOSE (local_lock);
-  ret =
-    (atomic_dec (&local_lock->fd_ref) > 0 ? 0 : release_fd (fd, local_lock));
+  if (dmm_atomic_sub_return (&local_lock->fd_ref, 1) > 0)
+    ret = 0;
+  else
+    ret = release_fd (fd, local_lock);
 
   if (-1 == ret)
     {
@@ -2404,7 +2409,7 @@ nstack_epoll_ctl (int epfd, int op, int fd, struct epoll_event *event)
       goto err_return;
     }
 
-  ep = ADDR_SHTOL (epInfo->ep);
+  ep = epInfo->ep;
   if (NULL == ep)
     {
       NSSOC_LOGWAR ("ep of epfd=%d is NULL [return]", epfd);
@@ -2427,7 +2432,7 @@ nstack_epoll_ctl (int epfd, int op, int fd, struct epoll_event *event)
         }
     }
 
-  sys_arch_lock_with_pid (&ep->sem);
+  dmm_spin_lock_pid (&ep->sem);
 
   epi = nsep_find_ep (ep, fd);
   switch (op)
@@ -2436,9 +2441,9 @@ nstack_epoll_ctl (int epfd, int op, int fd, struct epoll_event *event)
       if (!epi)
         {
           ep_event.events |= (EPOLLERR | EPOLLHUP);     // Check `man epoll_ctl` if you don't understand , smile :)
-          common_mem_rwlock_read_lock (get_fork_lock ());       /* to ensure that there is no fd to create and close when fork. added by tongshaojun t00391048 */
+          dmm_read_lock (get_fork_lock ());     /* to ensure that there is no fd to create and close when fork. added by tongshaojun t00391048 */
           ret = nsep_epctl_add (ep, fd, &ep_event);
-          common_mem_rwlock_read_unlock (get_fork_lock ());
+          dmm_read_unlock (get_fork_lock ());
         }
       else
         {
@@ -2450,9 +2455,9 @@ nstack_epoll_ctl (int epfd, int op, int fd, struct epoll_event *event)
     case EPOLL_CTL_DEL:
       if (epi)
         {
-          common_mem_rwlock_read_lock (get_fork_lock ());
+          dmm_read_lock (get_fork_lock ());
           ret = nsep_epctl_del (ep, epi);
-          common_mem_rwlock_read_unlock (get_fork_lock ());
+          dmm_read_unlock (get_fork_lock ());
         }
       else
         {
@@ -2480,7 +2485,7 @@ nstack_epoll_ctl (int epfd, int op, int fd, struct epoll_event *event)
       ret = -1;
     }
 
-  sys_sem_s_signal (&ep->sem);
+  dmm_spin_unlock (&ep->sem);
   NSSOC_LOGINF ("epfd=%d,op=%d,fd=%d,ret=%d [return]", epfd, op, fd, ret);
 
 err_return:
@@ -2664,7 +2669,7 @@ nstack_epoll_wait (int epfd, struct epoll_event *events, int maxevents,
       return -1;
     }
 
-  ep = ADDR_SHTOL (epInfo->ep);
+  ep = epInfo->ep;
   if (NULL == ep)
     {
       NSSOC_LOGWAR ("fdInf->ep is NULL, return -1,epinfo=%p,epfd=%d", epInfo,
@@ -2760,11 +2765,13 @@ nstack_fork (void)
 
   NSTACK_INIT_CHECK_RET (fork);
 
-  common_mem_rwlock_write_lock (get_fork_lock ());
+  dmm_write_lock (get_fork_lock ());
   if (NSTACK_MODULE_SUCCESS == g_nStackInfo.fwInited)
     {
+      dmm_spinlock_t *fork_lock = nstack_get_fork_share_lock ();
+
       nstack_fork_init_parent (parent_pid);
-      dmm_spinlock_lock_with_pid (nstack_get_fork_share_lock (), parent_pid);
+      dmm_spin_lock_with (fork_lock, parent_pid);
       pid = nsfw_base_fork ();
       if (pid == 0)
         {
@@ -2772,24 +2779,23 @@ nstack_fork (void)
           nstack_log_lock_release ();
           nstack_fork_init_child (parent_pid);
           (void) nstack_for_epoll_init ();
-          dmm_spinlock_lock_with_pid (nstack_get_fork_share_lock (),
-                                      get_sys_pid ());
+          dmm_spin_lock_with (fork_lock, get_sys_pid ());
           nsep_fork_child_proc (parent_pid);
 
           (void) select_module_init_child ();
-          common_mem_spinlock_unlock (nstack_get_fork_share_lock ());
+          dmm_spin_unlock (fork_lock);
         }
       else if (pid > 0)
         {
           pid_t child_pid = get_hostpid_from_file (pid);
           nsep_fork_parent_proc (parent_pid, child_pid);
-          common_mem_spinlock_unlock (nstack_get_fork_share_lock ());
+          dmm_spin_unlock (fork_lock);
           sys_sleep_ns (0, 10000000);   /* wait child add pid for netconn */
         }
       else
         {
           NSSOC_LOGERR ("fork failed]parent_pid=%d", parent_pid);
-          common_mem_spinlock_unlock (nstack_get_fork_share_lock ());
+          dmm_spin_unlock (fork_lock);
         }
     }
   else
@@ -2803,6 +2809,6 @@ nstack_fork (void)
                     parent_pid, pid);
     }
 
-  common_mem_rwlock_write_unlock (get_fork_lock ());
+  dmm_write_unlock (get_fork_lock ());
   return pid;
 }

@@ -14,9 +14,23 @@
 # limitations under the License.
 #########################################################################
 
-SET(LIBINIT_SRC fw_init.c fw_module.c)
+INCLUDE_DIRECTORIES(include nsfw_nshmem nsfw_shmem ps_mem)
 
-ADD_DEFINITIONS(-fPIC -mssse3)
+if(WITH_HAL_LIB)
+else()
+    SET(PAL_H_DIRECTORIES "/usr/include/dpdk/")
+    INCLUDE_DIRECTORIES(${PAL_H_DIRECTORIES})
+#    SET(PAL_BITWIDE_ADJUST ${PROJECT_SOURCE_DIR}/src/include/common_pal_bitwide_adjust.h)
+#    ADD_DEFINITIONS(-include ${PAL_BITWIDE_ADJUST})
+endif()
 
-ADD_LIBRARY(nStackfwinit static ${LIBINIT_SRC})
+FILE(GLOB_RECURSE MEM_MGR_SRC *.c)
 
+#LINK_LIBRARIES(m dl rt dmm_api)
+
+if(WITH_SECUREC_LIB)
+INCLUDE_DIRECTORIES(
+	${SECUREC_SRC}
+)
+endif()
+ADD_LIBRARY(mem_mgr STATIC ${MEM_MGR_SRC})

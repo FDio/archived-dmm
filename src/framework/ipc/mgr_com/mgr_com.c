@@ -17,28 +17,27 @@
 /*==============================================*
  *      include header files                    *
  *----------------------------------------------*/
-
-#include "types.h"
-#include "nstack_securec.h"
-#include "nsfw_init.h"
-#include "common_mem_api.h"
-
-#include "nsfw_mgr_com_api.h"
-#include "mgr_com.h"
-#include "nstack_log.h"
-#include "nsfw_base_linux_api.h"
-
+#include <errno.h>
 #include <sys/un.h>
 #include <stddef.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include "types.h"
+#include "nstack_securec.h"
+#include "nsfw_init.h"
+#include "nsfw_mgr_com_api.h"
+#include "mgr_com.h"
+#include "nstack_log.h"
+#include "nsfw_base_linux_api.h"
 #include "nsfw_maintain_api.h"
 #include "nsfw_ps_api.h"
 #include "nsfw_fd_timer_api.h"
 
-#include "common_func.h"
+#include "dmm_atomic.h"
+#include "dmm_sys.h"
+#include "dmm_memory.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -168,8 +167,7 @@ nsfw_mgr_msg_alloc (u16 msg_type, u8 dst_proc_type)
 
   if (FALSE == from_mem_flag)
     {
-      if (0 ==
-          nsfw_mem_ring_dequeue (g_mgr_com_cfg.msg_pool, (void *) &p_msg))
+      if (1 != dmm_dequeue (g_mgr_com_cfg.msg_pool, (void **) &p_msg))
         {
           NSFW_LOGERR ("alloc msg full]type=%u,dst=%u", msg_type,
                        dst_proc_type);
@@ -200,7 +198,8 @@ nsfw_mgr_msg_alloc (u16 msg_type, u8 dst_proc_type)
 
   if (msg_type < MGR_MSG_RSP_BASE && msg_type > 0)
     {
-      p_msg->seq = common_mem_atomic32_add_return (&g_mgr_com_cfg.cur_idx, 1);
+      p_msg->seq =
+        dmm_atomic_add_return ((dmm_atomic_t *) & g_mgr_com_cfg.cur_idx, 1);
     }
 
   p_msg->from_mem = from_mem_flag;
@@ -298,7 +297,7 @@ nsfw_mgr_msg_free (nsfw_mgr_msg * msg)
       NSFW_LOGERR ("msg err free]type=%u", msg->msg_type);
     }
 
-  if (0 == nsfw_mem_ring_enqueue (g_mgr_com_cfg.msg_pool, msg))
+  if (1 != dmm_enqueue (g_mgr_com_cfg.msg_pool, msg))
     {
       NSFW_LOGERR ("msg free failed pool full]msg=%p, type=%u", msg,
                    msg->msg_type);
@@ -693,7 +692,7 @@ nsfw_mgr_clr_fd_lock ()
     }
   for (i = 0; i < (i32) NSFW_MGR_FD_MAX; i++)
     {
-      common_mem_spinlock_init (&(g_mgr_socket_map.sock[i].opr_lock));
+      dmm_spin_init (&(g_mgr_socket_map.sock[i].opr_lock));
     }
   return TRUE;
 }
@@ -1953,32 +1952,8 @@ nsfw_mgr_com_module_init (void *param)
 
   mgr_cfg->proc_type = proc_type;
 
-  nsfw_mem_sppool pmpinfo;
-  if (EOK != MEMSET_S (&pmpinfo, sizeof (pmpinfo), 0, sizeof (pmpinfo)))
-    {
-      NSFW_LOGERR ("Error to memset!!!");
-      nsfw_mgr_comm_fd_destroy ();
-      lint_unlock_1 ();
-      return -1;
-    }
-
-  pmpinfo.enmptype = NSFW_MRING_MPMC;
-  pmpinfo.usnum = mgr_cfg->msg_size;
-  pmpinfo.useltsize = sizeof (nsfw_mgr_msg);
-  pmpinfo.isocket_id = NSFW_SOCKET_ANY;
-  pmpinfo.stname.entype = NSFW_NSHMEM;
-  if (-1 ==
-      SPRINTF_S (pmpinfo.stname.aname, sizeof (pmpinfo.stname.aname), "%s",
-                 "MS_MGR_MSGPOOL"))
-    {
-      NSFW_LOGERR ("Error to SPRINTF_S!!!");
-      nsfw_mgr_comm_fd_destroy ();
-      lint_unlock_1 ();
-      return -1;
-    }
-
-  mgr_cfg->msg_pool = nsfw_mem_sp_create (&pmpinfo);
-
+  mgr_cfg->msg_pool = dmm_malloc_pool (sizeof (nsfw_mgr_msg),
+                                       mgr_cfg->msg_size, DMM_RING_INIT_MPMC);
   if (!mgr_cfg->msg_pool)
     {
       NSFW_LOGERR ("module mgr init msg_pool alloc failed!");
@@ -1987,8 +1962,8 @@ nsfw_mgr_com_module_init (void *param)
       return -1;
     }
 
-  (void) MEM_STAT (NSFW_MGR_COM_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
-                   nsfw_mem_get_len (mgr_cfg->msg_pool, NSFW_MEM_SPOOL));
+//  (void) MEM_STAT (NSFW_MGR_COM_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
+//                   nsfw_mem_get_len (mgr_cfg->msg_pool, NSFW_MEM_SPOOL));
 
   if ((NSFW_PROC_TOOLS == proc_type)
       || (NSFW_PROC_CTRL == proc_type) || (NSFW_PROC_MAIN == proc_type))
@@ -2048,8 +2023,8 @@ nsfw_mgr_run_script (const char *cmd, char *result, int result_buf_len)
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME(NSFW_MGR_COM_MODULE)
-NSFW_MODULE_PRIORITY(10)
-NSFW_MODULE_DEPENDS(NSFW_MEM_MGR_MODULE)
+NSFW_MODULE_PRIORITY(20)
+NSFW_MODULE_DEPENDS(DMM_MEMORY_MODULE)
 NSFW_MODULE_INIT(nsfw_mgr_com_module_init)
 /* *INDENT-ON* */
 

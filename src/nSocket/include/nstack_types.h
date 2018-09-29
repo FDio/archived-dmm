@@ -20,7 +20,6 @@
 #include <time.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <common_pal_bitwide_adjust.h>
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

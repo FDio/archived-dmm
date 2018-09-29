@@ -13,9 +13,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+#include <errno.h>
 
-#include "common_sys_config.h"
-#include "common_mem_mbuf.h"
 #include "nstack_log.h"
 #include "nstack_securec.h"
 #include "hal.h"
@@ -848,7 +847,7 @@ hal_is_nic_exist (const char *name)
                   "sudo ifconfig -a | grep -w \"%s[ :]\"", name);
   if (-1 == retval)
     {
-      NSHAL_LOGERR ("rte_snprintf failed]retval=%d", retval);
+      NSHAL_LOGERR ("hal_snprintf failed]retval=%d", retval);
       return 0;
     }
 

@@ -15,10 +15,15 @@
 */
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "dmm_config.h"
 #include "dmm_memory.h"
 #include "dmm_group.h"
+
+#include "nsfw_init.h"
+#include "nsfw_mgr_com_api.h"
+#include "nstack_log.h"
 
 #define DMM_MEGABYTE (1024 * 1024)
 
@@ -44,7 +49,8 @@ dmm_mem_main_init ()
 
   main_share = &main_group->share;
   main_share->type = DMM_MAIN_SHARE_TYPE;
-  main_share->size = DMM_MAIN_SHARE_SIZE * DMM_MEGABYTE;
+  main_share->size = DMM_MAIN_SHARE_SIZE;
+  main_share->size *= DMM_MEGABYTE;
   main_share->base = NULL;
   main_share->pid = getpid ();
   ret = dmm_share_create (main_share);
@@ -58,6 +64,8 @@ dmm_mem_main_init ()
     {
       return -1;
     }
+
+  base_seg = main_seg;
 
   dmm_group_active ();
 
@@ -83,12 +91,18 @@ dmm_mem_app_init ()
       ret = dmm_share_attach (main_share);
       if (ret)
         {
+          NSFW_LOGERR
+            ("share attach failed, type:%d pid:%d base:%p size:%lu path:%s",
+             main_share->type, main_share->pid, main_share->base,
+             main_share->size, main_share->path);
           return -1;
         }
 
       main_seg = dmm_seg_attach (main_share->base, main_share->size);
       if (!main_seg)
         {
+          NSFW_LOGERR ("segment attach failed, base:%p size:%lu",
+                       main_share->base, main_share->size);
           return -1;
         }
 
@@ -131,3 +145,132 @@ dmm_mem_app_exit ()
 
   return 0;
 }
+
+struct dmm_ring *
+dmm_create_ring (int num, int flag, const char name[DMM_MEM_NAME_SIZE])
+{
+  struct dmm_ring *ring;
+  const size_t bufsize = dmm_ring_bufsize (num);
+
+  dmm_lock_map ();
+
+  ring = dmm_map (bufsize, name);
+
+  if (ring)
+    {
+      if (0 != dmm_ring_init (ring, num, flag))
+        {
+          (void) dmm_unmap (ring);
+          ring = NULL;
+        }
+    }
+
+  dmm_unlock_map ();
+
+  return ring;
+}
+
+struct dmm_ring *
+dmm_attach_ring (const char name[DMM_MEM_NAME_SIZE])
+{
+  return (struct dmm_ring *) dmm_lookup (name);
+}
+
+struct dmm_ring *
+dmm_malloc_ring (int num, int flag)
+{
+  const size_t size = dmm_ring_bufsize (num);
+  struct dmm_ring *ring = malloc (size);
+
+  if (!ring)
+    return NULL;
+
+  if (0 != dmm_ring_init (ring, num, flag))
+    {
+      free (ring);
+      return NULL;
+    }
+
+  return ring;
+}
+
+struct dmm_ring *
+dmm_create_pool (size_t elt_size, int num, int flag,
+                 const char name[DMM_MEM_NAME_SIZE])
+{
+  struct dmm_ring *pool;
+  const size_t pool_size = dmm_pool_bufsize (num, elt_size);
+
+  dmm_lock_map ();
+
+  pool = dmm_map (pool_size, name);
+
+  if (pool)
+    {
+      if (0 != dmm_pool_init (pool, elt_size, num, flag))
+        {
+          (void) dmm_unmap (pool);
+          pool = NULL;
+        }
+    }
+
+  dmm_unlock_map ();
+
+  return pool;
+}
+
+struct dmm_ring *
+dmm_attach_pool (const char name[DMM_MEM_NAME_SIZE])
+{
+  return (struct dmm_ring *) dmm_lookup (name);
+}
+
+struct dmm_ring *
+dmm_malloc_pool (size_t elt_size, int num, int flag)
+{
+  const size_t size = dmm_pool_bufsize (num, elt_size);
+  struct dmm_ring *pool = malloc (size);
+
+  if (!pool)
+    {
+      return NULL;
+    }
+
+  if (0 != dmm_pool_init (pool, elt_size, num, flag))
+    {
+      free (pool);
+      return NULL;
+    }
+
+  return pool;
+}
+
+int
+dmm_mem_module_init (void *param)
+{
+  int ret;
+  const u32 proc_type = (u32) ((long) param);
+
+  NSFW_LOGINF ("dmm mem module init]type=%u", proc_type);
+
+  switch (proc_type)
+    {
+    case NSFW_PROC_MAIN:
+      ret = dmm_mem_main_init ();
+      break;
+    case NSFW_PROC_NULL:
+      ret = 0;
+      break;
+    default:
+      ret = dmm_mem_app_init ();
+      break;
+    }
+
+  return ret;
+}
+
+/* *INDENT-OFF* */
+NSFW_MODULE_NAME (DMM_MEMORY_MODULE)
+NSFW_MODULE_PRIORITY (10)
+NSFW_MODULE_INIT (dmm_mem_module_init)
+/* *INDENT-ON* */

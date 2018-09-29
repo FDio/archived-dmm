@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include "hal_api.h"
 #include "nstack_log.h"
+#include "dmm_common.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

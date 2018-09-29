@@ -361,6 +361,7 @@ get_network_json_data ()
   tmp_config_path = realpath ("./network_data_tonStack.json", NULL);
   if (!tmp_config_path)
     {
+      NSTCP_LOGERR ("realpath ./network_data_tonStack.json failed.\n");
       exit (1);
     }
 
@@ -368,7 +369,7 @@ get_network_json_data ()
   if (-1 == fp)
     {
       free (tmp_config_path);
-      NSTCP_LOGINF ("network file open failed.\n");
+      NSTCP_LOGERR ("network file open failed.\n");
       exit (1);
     }
   free (tmp_config_path);

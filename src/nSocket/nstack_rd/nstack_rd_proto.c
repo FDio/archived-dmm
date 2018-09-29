@@ -23,7 +23,8 @@
 #include "nstack_rd_proto.h"
 #include "nstack_log.h"
 #include "nstack_securec.h"
-#include "common_mem_common.h"
+
+#include "dmm_common.h"
 
 /*copy rd data*/
 int

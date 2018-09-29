@@ -14,16 +14,20 @@
 * limitations under the License.
 */
 
+#include <errno.h>
+
 #include "nstack_eventpoll.h"
 #include "nstack_log.h"
 #include "nsfw_recycle_api.h"
 #include "nstack_securec.h"
 #include "nstack_module.h"
 #include "nstack_sockops.h"
-#include "nsfw_mem_api.h"
 #include "nstack_fd_mng.h"
 #include "nstack.h"
 #include "nstack_dmm_adpt.h"
+
+#include "dmm_sys.h"
+#include "dmm_memory.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -55,21 +59,21 @@ nsep_ctl_event_add (struct epitem *epi, struct eventpoll *ep,
     case nstack_ep_triggle_add:
       if (events & epi->event.events)
         {
-          sys_arch_lock_with_pid (&ep->lock);
+          dmm_spin_lock_pid (&ep->lock);
 
           if (!EP_HLIST_NODE_LINKED (&epi->rdllink))
             {
               ep_hlist_add_tail (&ep->rdlist, &epi->rdllink);
             }
 
-          sys_sem_s_signal (&ep->lock);
+          dmm_spin_unlock (&ep->lock);
           sem_post (&ep->waitSem);
         }
 
       break;
 
     case nstack_ep_triggle_mod:
-      sys_arch_lock_with_pid (&ep->lock);
+      dmm_spin_lock_pid (&ep->lock);
 
       if (events & epi->event.events)
         {
@@ -88,7 +92,7 @@ nsep_ctl_event_add (struct epitem *epi, struct eventpoll *ep,
             }
         }
 
-      sys_sem_s_signal (&ep->lock);
+      dmm_spin_unlock (&ep->lock);
       break;
     default:
       break;
@@ -114,7 +118,7 @@ nsep_epctl_triggle (struct epitem *epi, nsep_epollInfo_t * info,
   struct eventpoll *ep = NULL;
   nsep_epollInfo_t *epInfo = NULL;
 
-  ep = ADDR_SHTOL (epi->ep);
+  ep = epi->ep;
   epfd = ep->epfd;
   epInfo = nsep_get_infoBySock (epfd);
 
@@ -190,7 +194,7 @@ nsep_rbtree_insert (struct eventpoll *ep, struct epitem *epi)
           break;
         }
 
-      parent = (struct ep_rb_node *) ADDR_SHTOL (*p);
+      parent = *p;
       epic = ep_rb_entry (parent, struct epitem, rbn);
       if (epi->fd > epic->fd)
         {
@@ -226,8 +230,7 @@ nsep_insert_node (struct eventpoll *ep, struct epoll_event *event,
   EP_HLIST_INIT_NODE (&epi->lkFDllink);
 
   epi->nwait = 0;
-  epi->ep = (struct eventpoll *) ADDR_LTOSH_EXT (ep);
-  epi->epInfo = (nsep_epollInfo_t *) ADDR_LTOSH_EXT (fdInfo);
+  epi->ep = ep;
   epi->revents = 0;
   epi->ovf_revents = 0;
   epi->event = *event;
@@ -238,10 +241,10 @@ nsep_insert_node (struct eventpoll *ep, struct epoll_event *event,
   /* Add the current item to the list of active epoll hook for this file
      This should lock because file descriptor may be called by other eventpoll */
 
-  sys_arch_lock_with_pid (&fdInfo->epiLock);
+  dmm_spin_lock_pid (&fdInfo->epiLock);
   ep_list_add_tail (&fdInfo->epiList, &epi->fllink);
-  epi->private_data = (void *) ADDR_LTOSH_EXT (fdInfo);
-  sys_sem_s_signal (&fdInfo->epiLock);
+  epi->epInfo = fdInfo;
+  dmm_spin_unlock (&fdInfo->epiLock);
 
   /* Add epitem to eventpoll fd list, don't need lock here because epoll_ctl will lock before calling this function */
   nsep_rbtree_insert (ep, epi);
@@ -306,20 +309,18 @@ nsep_epctl_del (struct eventpoll *ep, struct epitem *epi)
 {
   int ret = 0;
 
-  nsep_epollInfo_t *epInfo =
-    (nsep_epollInfo_t *) ADDR_SHTOL (epi->private_data);
+  nsep_epollInfo_t *epInfo = epi->epInfo;
   NSSOC_LOGINF ("epfd=%d,fd=%d,epi=%p", ep->epfd, epi->fd, epi);        // modify log format error
 
   nsep_epctl_triggle (epi, epInfo, nstack_ep_triggle_del);
 
-  sys_arch_lock_with_pid (&epInfo->epiLock);
+  dmm_spin_lock_pid (&epInfo->epiLock);
   ep_list_del (&epInfo->epiList, &epi->fllink);
+  dmm_spin_unlock (&epInfo->epiLock);
 
-  sys_sem_s_signal (&epInfo->epiLock);
-
-  sys_arch_lock_with_pid (&ep->lock);
+  dmm_spin_lock_pid (&ep->lock);
   ret = nstack_ep_unlink (ep, epi);
-  sys_sem_s_signal (&ep->lock);
+  dmm_spin_unlock (&ep->lock);
   nsep_free_epitem (epi);
 
   return ret;
@@ -340,9 +341,9 @@ nsep_epctl_mod (struct eventpoll *ep,
   NSSOC_LOGINF ("epfd=%d,fd=%d,events=%u", ep->epfd, epInfo->fd,
                 events->events);
 
-  sys_arch_lock_with_pid (&ep->lock);
+  dmm_spin_lock_pid (&ep->lock);
   epi->event = *events;         /* kernel tells me that I need to modify epi->event in lock context */
-  sys_sem_s_signal (&ep->lock);
+  dmm_spin_unlock (&ep->lock);
 
   nsep_epctl_triggle (epi, epInfo, nstack_ep_triggle_mod);
   return 0;
@@ -367,11 +368,10 @@ nsep_events_proc (struct eventpoll *ep,
     {
       node = head;
       epi = ep_hlist_entry (node, struct epitem, rdllink);
-      head = (struct ep_hlist_node *) ADDR_SHTOL (node->next);
+      head = (struct ep_hlist_node *) (node->next);
       EP_HLIST_INIT_NODE (node);
 
-      nsep_epollInfo_t *fdInfo =
-        (nsep_epollInfo_t *) ADDR_SHTOL (epi->private_data);
+      nsep_epollInfo_t *fdInfo = epi->epInfo;
 
       if (fdInfo->rmidx != -1)
         {
@@ -434,48 +434,47 @@ nsep_ep_poll (struct eventpoll *ep, struct epoll_event *events, int maxevents,
       return 0;
     }
 
-  sys_arch_lock_with_pid (&ep->sem);
+  dmm_spin_lock_pid (&ep->sem);
 
   if (EP_HLIST_EMPTY (&ep->rdlist))
     {
       goto out;
     }
 
-  sys_arch_lock_with_pid (&ep->lock);
-  head = (struct ep_hlist_node *) ADDR_SHTOL (ep->rdlist.head);
+  dmm_spin_lock_pid (&ep->lock);
+  head = (struct ep_hlist_node *) (ep->rdlist.head);
   if (!head)
     {
-      sys_sem_s_signal (&ep->lock);
+      dmm_spin_unlock (&ep->lock);
       goto out;
     }
-  nhead.head = (struct ep_hlist_node *) ADDR_SHTOL (head->next);
-  nhead.tail = (struct ep_hlist_node *) ADDR_SHTOL (ep->rdlist.tail);
+  nhead.head = (struct ep_hlist_node *) (head->next);
+  nhead.tail = (struct ep_hlist_node *) (ep->rdlist.tail);
   /*unlink from ep->rdlist */
   EP_HLIST_INIT (&(ep->rdlist));
   ep->ovflist = NULL;
-  sys_sem_s_signal (&ep->lock);
+  dmm_spin_unlock (&ep->lock);
 
   /*get event list */
   evt = nsep_events_proc (ep, &nhead, events, maxevents, eventflag, num);
 
-  sys_arch_lock_with_pid (&ep->lock);
+  dmm_spin_lock_pid (&ep->lock);
   /*put rest epitem back to the rdlist */
   if (nhead.head)
     {
-      tail = (struct ep_hlist_node *) ADDR_SHTOL (ep->rdlist.tail);
-      tail->next = (struct ep_hlist_node *) ADDR_LTOSH (nhead.head);
-      nhead.head->pprev = (struct ep_hlist_node **) ADDR_LTOSH (&tail->next);
-      ep->rdlist.tail = (struct ep_hlist_node *) ADDR_LTOSH (nhead.tail);
+      tail = (struct ep_hlist_node *) (ep->rdlist.tail);
+      tail->next = (struct ep_hlist_node *) (nhead.head);
+      nhead.head->pprev = (struct ep_hlist_node **) (&tail->next);
+      ep->rdlist.tail = (struct ep_hlist_node *) (nhead.tail);
     }
   /*put the epitem in ep->ovflist to rdlist */
-  for (nepi = (struct epitem *) ADDR_SHTOL (ep->ovflist);
+  for (nepi = (struct epitem *) (ep->ovflist);
        (epi = nepi) != NULL;
-       nepi = (struct epitem *) ADDR_SHTOL (epi->next), epi->next =
-       NSEP_EP_UNACTIVE_PTR)
+       nepi = (struct epitem *) (epi->next), epi->next = NSEP_EP_UNACTIVE_PTR)
     {
       epi->revents |= epi->ovf_revents;
       /*set the flag that already have event int the rdlist */
-      fdInfo = (nsep_epollInfo_t *) ADDR_SHTOL (epi->private_data);
+      fdInfo = epi->epInfo;
       if (eventflag && fdInfo && (fdInfo->rmidx >= 0)
           && (fdInfo->rmidx < num))
         {
@@ -488,9 +487,9 @@ nsep_ep_poll (struct eventpoll *ep, struct epoll_event *events, int maxevents,
         }
     }
   ep->ovflist = NSEP_EP_UNACTIVE_PTR;
-  sys_sem_s_signal (&ep->lock);
+  dmm_spin_unlock (&ep->lock);
 out:
-  sys_sem_s_signal (&ep->sem);
+  dmm_spin_unlock (&ep->sem);
   NSSOC_LOGDBG ("Return epfd=%d,evt=%d,EP_HLIST_EMPTY(&ep->rdlist)=%d",
                 ep->epfd, evt, EP_HLIST_EMPTY (&ep->rdlist));
   return evt;
@@ -548,10 +547,10 @@ nsep_remove_epfd (nsep_epollInfo_t * pinfo)
       return;
     }
 #endif
-  sys_arch_lock_with_pid (&pinfo->epiLock);
+  dmm_spin_lock_pid (&pinfo->epiLock);
   /*list head must be not null */
-  prenode = (struct list_node *) ADDR_SHTOL (pinfo->epiList.head);
-  nextnode = (struct list_node *) ADDR_SHTOL (prenode->next);
+  prenode = pinfo->epiList.head;
+  nextnode = prenode->next;
   icnt = 0;
 
   /*find all node that pid is belong to itself */
@@ -594,10 +593,10 @@ nsep_remove_epfd (nsep_epollInfo_t * pinfo)
         {
           prenode = nextnode;
         }
-      nextnode = (struct list_node *) ADDR_SHTOL (prenode->next);
+      nextnode = prenode->next;
     }
 
-  sys_sem_s_signal (&pinfo->epiLock);
+  dmm_spin_unlock (&pinfo->epiLock);
 
   /*free all epitem */
 #ifdef FREE_LIST_SIZE
@@ -622,10 +621,10 @@ nsep_remove_epfd (nsep_epollInfo_t * pinfo)
 #else
       epi = ep_list_entry (node_arry[i], struct epitem, fllink);
 #endif
-      ep = (struct eventpoll *) ADDR_SHTOL (epi->ep);
+      ep = epi->ep;
       if (ep)
         {
-          sys_arch_lock_with_pid (&ep->sem);
+          dmm_spin_lock_pid (&ep->sem);
           /* Here don't use epi you find before, use fd and ep to find the epi again.that is multithread safe */
           tepi = nsep_find_ep (ep, pinfo->fd);
           /*record the exception log */
@@ -638,13 +637,13 @@ nsep_remove_epfd (nsep_epollInfo_t * pinfo)
           if (tepi)
             {
               nsep_epctl_triggle (tepi, pinfo, nstack_ep_triggle_del);
-              sys_arch_lock_with_pid (&ep->lock);
+              dmm_spin_lock_pid (&ep->lock);
               (void) nstack_ep_unlink (ep, tepi);
-              sys_sem_s_signal (&ep->lock);
+              dmm_spin_unlock (&ep->lock);
 
               nsep_free_epitem (epi);
             }
-          sys_sem_s_signal (&ep->sem);
+          dmm_spin_unlock (&ep->sem);
         }
     }
 #ifdef FREE_LIST_SIZE
@@ -669,7 +668,7 @@ nsep_close_epfd (struct eventpoll *ep)
   struct epitem *epi = NULL;
   struct ep_rb_node *node = NULL;
 
-  sys_arch_lock_with_pid (&ep->sem);
+  dmm_spin_lock_pid (&ep->sem);
   while ((node = ep_rb_first (&ep->rbr)))
     {
 
@@ -684,7 +683,7 @@ nsep_close_epfd (struct eventpoll *ep)
           break;
         }
     }
-  sys_sem_s_signal (&ep->sem);
+  dmm_spin_unlock (&ep->sem);
   nsep_free_eventpoll (ep);
 }
 
@@ -696,9 +695,9 @@ nsp_epoll_close_kernel_fd (int sock, nsep_epollInfo_t * epInfo)
   nsep_remove_epfd (epInfo);
 
   u32_t pid = get_sys_pid ();
-  sys_arch_lock_with_pid (&epInfo->freeLock);
+  dmm_spin_lock_pid (&epInfo->freeLock);
   int left_count = nsep_del_last_pid (&epInfo->pidinfo, pid);
-  sys_sem_s_signal (&epInfo->freeLock);
+  dmm_spin_unlock (&epInfo->freeLock);
   if (-1 == left_count)
     {
       NSSOC_LOGERR ("pid not exist]fd=%d,type=%d,pid=%d", sock,
@@ -725,12 +724,12 @@ nsp_epoll_close_spl_fd (int sock, nsep_epollInfo_t * epInfo)
 static inline int
 nsp_epoll_close_ep_fd (int sock, nsep_epollInfo_t * epInfo)
 {
-  struct eventpoll *ep = ADDR_SHTOL (epInfo->ep);
+  struct eventpoll *ep = epInfo->ep;
   u32_t pid = get_sys_pid ();
   NSSOC_LOGINF ("fd:%d is epoll fd ep:%p]", sock, ep);
-  sys_arch_lock_with_pid (&epInfo->freeLock);
+  dmm_spin_lock_pid (&epInfo->freeLock);
   int left_count = nsep_del_last_pid (&epInfo->pidinfo, pid);
-  sys_sem_s_signal (&epInfo->freeLock);
+  dmm_spin_unlock (&epInfo->freeLock);
   if (0 == left_count)
     {
       epInfo->ep = NULL;
@@ -932,7 +931,7 @@ nsep_set_infoEp (int fd, struct eventpoll *ep)
   if (NULL == epInfo)
     return;
 
-  epInfo->ep = (struct eventpoll *) ADDR_LTOSH (ep);
+  epInfo->ep = ep;
   epInfo->fdtype = NSTACK_EPOL_FD;
 }
 
@@ -944,7 +943,7 @@ nsep_get_infoEp (int fd)
   if (NULL == epInfo)
     return NULL;
 
-  return (struct eventpoll *) ADDR_SHTOL (epInfo->ep);
+  return epInfo->ep;
 }
 
 int
@@ -1001,7 +1000,7 @@ nsep_init_infoSockMap ()
   return 0;
 }
 
-NSTACK_STATIC mzone_handle
+NSTACK_STATIC struct dmm_ring *
 nsep_ring_lookup (char *name)
 {
   if (NULL == name)
@@ -1010,20 +1009,10 @@ nsep_ring_lookup (char *name)
       return NULL;
     }
 
-  nsfw_mem_name mem_name;
-  if (EOK != STRCPY_S (mem_name.aname, sizeof (mem_name.aname), name))
-    {
-      NSSOC_LOGERR ("Error to lookup ring by name, strcpy fail]name=%s",
-                    name);
-      return NULL;
-    }
-  mem_name.enowner = NSFW_PROC_MAIN;
-  mem_name.entype = NSFW_SHMEM;
-
-  return nsfw_mem_ring_lookup (&mem_name);
+  return (struct dmm_ring *) dmm_lookup (name);
 }
 
-NSTACK_STATIC mzone_handle
+NSTACK_STATIC void *
 nsep_attach_shmem (char *name)
 {
   if (NULL == name)
@@ -1031,39 +1020,26 @@ nsep_attach_shmem (char *name)
       NSSOC_LOGERR ("param error]name=%p", name);
       return NULL;
     }
-
-  nsfw_mem_name mem_name;
-  int retVal = STRCPY_S (mem_name.aname, sizeof (mem_name.aname), name);
-  if (EOK != retVal)
-    {
-      NSSOC_LOGERR ("STRCPY_S failed]");
-      return NULL;
-    }
-  mem_name.enowner = NSFW_PROC_MAIN;
-  mem_name.entype = NSFW_SHMEM;
-
-  return nsfw_mem_zone_lookup (&mem_name);
+  return dmm_lookup (name);
 }
 
 NSTACK_STATIC int
 nsep_attach_infoMem ()
 {
-  mzone_handle hdl = nsep_attach_shmem (MP_NSTACK_EPOLL_INFO_NAME);
+  void *hdl = nsep_attach_shmem (MP_NSTACK_EPOLL_INFO_NAME);
   if (NULL == hdl)
     return -1;
 
   nsep_epollManager_t *manager = nsep_getManager ();
   manager->infoPool.pool = (nsep_epollInfo_t *) hdl;
 
-  hdl = nsep_ring_lookup (MP_NSTACK_EPINFO_RING_NAME);
-  if (NULL == hdl)
+  manager->infoPool.ring = nsep_ring_lookup (MP_NSTACK_EPINFO_RING_NAME);
+  if (NULL == manager->infoPool.ring)
     {
       NSSOC_LOGERR ("Fail to lock up epoll info ring]name=%s",
                     MP_NSTACK_EPINFO_RING_NAME);
       return -1;
     }
-
-  manager->infoPool.ring = hdl;
 
   return 0;
 }
@@ -1071,22 +1047,20 @@ nsep_attach_infoMem ()
 NSTACK_STATIC int
 nsep_attach_epItemMem ()
 {
-  mzone_handle hdl = nsep_attach_shmem (MP_NSTACK_EPITEM_POOL);
+  void *hdl = nsep_attach_shmem (MP_NSTACK_EPITEM_POOL);
   if (NULL == hdl)
     return -1;
 
   nsep_epollManager_t *manager = nsep_getManager ();
   manager->epitemPool.pool = (struct epitem *) hdl;
 
-  hdl = nsep_ring_lookup (MP_NSTACK_EPITEM_RING_NAME);
-  if (NULL == hdl)
+  manager->epitemPool.ring = dmm_lookup (MP_NSTACK_EPITEM_RING_NAME);
+  if (NULL == manager->epitemPool.ring)
     {
       NSSOC_LOGERR ("Fail to lock up epoll info ring]name=%s",
                     MP_NSTACK_EPITEM_RING_NAME);
       return -1;
     }
-
-  manager->epitemPool.ring = hdl;
 
   return 0;
 }
@@ -1094,22 +1068,20 @@ nsep_attach_epItemMem ()
 NSTACK_STATIC int
 nsep_attach_eventpollMem ()
 {
-  mzone_handle hdl = nsep_attach_shmem (MP_NSTACK_EVENTPOLL_POOL);
+  void *hdl = nsep_attach_shmem (MP_NSTACK_EVENTPOLL_POOL);
   if (NULL == hdl)
     return -1;
 
   nsep_epollManager_t *manager = nsep_getManager ();
   manager->epollPool.pool = (struct eventpoll *) hdl;
 
-  hdl = nsep_ring_lookup (MP_NSTACK_EVENTPOOL_RING_NAME);
-  if (NULL == hdl)
+  manager->epollPool.ring = nsep_ring_lookup (MP_NSTACK_EVENTPOOL_RING_NAME);
+  if (NULL == manager->epollPool.ring)
     {
       NSSOC_LOGERR ("Fail to lock up epoll info ring]name=%s",
                     MP_NSTACK_EVENTPOOL_RING_NAME);
       return -1;
     }
-
-  manager->epollPool.ring = hdl;
 
   return 0;
 }

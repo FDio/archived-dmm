@@ -19,14 +19,17 @@
 
 #include "ephlist.h"
 #include "eprb_tree.h"
-#include "common_mem_api.h"
 #include "types.h"
 #include <semaphore.h>
 #include <sys/epoll.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "nstack_types.h"
 #include "nstack_securec.h"
 #include "nstack_log.h"
+#include "dmm_ring.h"
+#include "dmm_spinlock.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -68,8 +71,7 @@ struct eventpoll
    *    Protect the this structure access
    *    This is for event add to ready list and poll out
    */
-  sys_sem_st lock;
-
+  dmm_spinlock_t lock;
   /*
    * This semaphore is used to ensure that files are not removed
    * while epoll is using them. This is read-held during the event
@@ -78,7 +80,7 @@ struct eventpoll
    * When we do epoll_ctl, we write lock
    * When we collecting data , we read lock
    */
-  sys_sem_st sem;
+  dmm_spinlock_t sem;
 
   /*
    * This semaphore is used to block epoll_wait function
@@ -102,14 +104,12 @@ struct eventpoll
 
 struct eventpoll_pool
 {
-  void *ring;
+  struct dmm_ring *ring;
   struct eventpoll *pool;
 };
 
 typedef struct
 {
-  int iindex;
-  int iNext;
   int fd;
   i32 epaddflag;
   i32 fdtype;                   /*0: socket fd, 1: epoll fd */
@@ -117,21 +117,18 @@ typedef struct
   i32 rmidx;                    /* copy of fdInf->rmidx */
   i32 protoFD[NSEP_SMOD_MAX];   /* copy of fdInf->protoFD */// Here we need to set router infomations dependency
   struct eventpoll *ep;
-  sys_sem_st epiLock;
-  sys_sem_st freeLock;
+  dmm_spinlock_t epiLock;
+  dmm_spinlock_t freeLock;
   struct ep_list epiList;       /* This restore the epitem of this file descriptor */
   u32 sleepTime;                //add for NSTACK_SEM_SLEEP
   nsep_pidinfo pidinfo;
   nsfw_res res_chk;
-  void *private_data;           /*add for debug, just used to record extern infomation, for example sbr conn */
-  i32 reserv[4];
 } nsep_epollInfo_t;
 
 typedef struct
 {
-  void *ring;
+  struct dmm_ring *ring;
   nsep_epollInfo_t *pool;
-  char last_reserve[8];         //reserve for update
 } nsep_infoPool_t;
 
 struct epitem
@@ -149,13 +146,12 @@ struct epitem
   unsigned int ovf_revents;
   int fd;
   u32 pid;
-  void *private_data;
   nsfw_res res_chk;
 };
 
 struct epitem_pool
 {
-  void *ring;
+  struct dmm_ring *ring;
   struct epitem *pool;
 };
 

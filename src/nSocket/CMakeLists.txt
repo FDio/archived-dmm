@@ -14,12 +14,6 @@
 # limitations under the License.
 #########################################################################
 
-
-if(WITH_HAL_LIB)
-else()
-    SET(PAL_H_DIRECTORIES "/usr/include/dpdk/")
-endif()
-
 INCLUDE_DIRECTORIES(
     include/
     kernel/
@@ -28,7 +22,6 @@ INCLUDE_DIRECTORIES(
     nstack/event/epoll
     nstack/event/select
     ${SECUREC_SRC_H}
-    ${PAL_H_DIRECTORIES}
     ${CMAKE_CURRENT_LIST_DIR}/../adapt
     ${CMAKE_CURRENT_LIST_DIR}/../../thirdparty/json/json-c-0.12.1
 )
@@ -42,8 +35,5 @@ TARGET_LINK_LIBRARIES(
     ${LIB_PATH_STATIC}/libglog.a
     dmm_api
     -Wl,--no-whole-archive,-lstdc++
-    rte_eal
-    rte_mempool
-    rte_mbuf
-    rte_ring)
+)
 ADD_DEPENDENCIES(nStackAPI dmm_api)

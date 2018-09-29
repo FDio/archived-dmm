@@ -225,10 +225,8 @@ nsfw_module_set_instance_depends (nsfw_module_instance_t * inst, char *name)
   if (NULL == dep)
     return;
 
-  if (NULL == inst->depends)
-    inst->depends = dep;
-  else
-    inst->depends->next = dep;
+  dep->next = inst->depends;
+  inst->depends = dep;
 }
 
 /* *INDENT-OFF* */

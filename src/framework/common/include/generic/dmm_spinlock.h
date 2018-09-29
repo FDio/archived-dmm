@@ -29,25 +29,37 @@ dmm_spin_init (dmm_spinlock_t * spinlock)
   spinlock->lock = 0;
 }
 
-inline static void
-dmm_spin_lock (dmm_spinlock_t * spinlock)
+static inline int
+dmm_spin_trylock_with (dmm_spinlock_t * spinlock, int value)
 {
-  while (0 != __sync_lock_test_and_set (&spinlock->lock, 1))
+  return __sync_bool_compare_and_swap (&spinlock->lock, 0, value);
+}
+
+static inline void
+dmm_spin_lock_with (dmm_spinlock_t * spinlock, int value)
+{
+  while (!dmm_spin_trylock_with (spinlock, value))
     {
       DMM_PAUSE_WHILE (spinlock->lock);
     }
 }
 
+inline static void
+dmm_spin_lock (dmm_spinlock_t * spinlock)
+{
+  dmm_spin_lock_with (spinlock, 1);
+}
+
 inline static int
 dmm_spin_trylock (dmm_spinlock_t * spinlock)
 {
-  return 0 == __sync_lock_test_and_set (&spinlock->lock, 1);
+  return dmm_spin_trylock_with (spinlock, 1);
 }
 
 inline static void
 dmm_spin_unlock (dmm_spinlock_t * spinlock)
 {
-  spinlock->lock = 0;
+  __sync_lock_release (&spinlock->lock);
 }
 
 #endif /* #ifndef _DMM_SPINLOCK_H_ */

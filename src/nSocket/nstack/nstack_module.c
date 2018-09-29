@@ -29,7 +29,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include "nstack_module.h"
-#include "common_mem_buf.h"
 #include "nstack_log.h"
 #include "nstack_securec.h"
 #include "nstack_dmm_api.h"

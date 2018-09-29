@@ -32,7 +32,7 @@ ep_rb_first (const struct ep_rb_root *root)
     return NULL;
 
   struct ep_rb_node *n;
-  n = (struct ep_rb_node *) ADDR_SHTOL (root->rb_node);
+  n = root->rb_node;
 
   if (!n)
     {
@@ -41,7 +41,7 @@ ep_rb_first (const struct ep_rb_root *root)
 
   while (n->rb_left)
     {
-      n = (struct ep_rb_node *) ADDR_SHTOL (n->rb_left);
+      n = n->rb_left;
     }
 
   return n;
@@ -53,15 +53,14 @@ __ep_rb_rotate_left (struct ep_rb_node *X, struct ep_rb_root *root)
     /**************************
      *  rotate Node X to left *
      **************************/
-  struct ep_rb_node *Y = (struct ep_rb_node *) ADDR_SHTOL (X->rb_right);
+  struct ep_rb_node *Y = X->rb_right;
 
   /* establish X->Right link */
   X->rb_right = Y->rb_left;
 
   if (Y->rb_left != NULL)
     {
-      ((struct ep_rb_node *) ADDR_SHTOL (Y->rb_left))->rb_parent =
-        (struct ep_rb_node *) ADDR_LTOSH_EXT (X);
+      Y->rb_left->rb_parent = X;
     }
 
   /* establish Y->Parent link */
@@ -69,26 +68,25 @@ __ep_rb_rotate_left (struct ep_rb_node *X, struct ep_rb_root *root)
 
   if (X->rb_parent)
     {
-      struct ep_rb_node *xParent =
-        (struct ep_rb_node *) ADDR_SHTOL (X->rb_parent);
+      struct ep_rb_node *xParent = X->rb_parent;
 
-      if (X == ADDR_SHTOL (xParent->rb_left))
+      if (X == xParent->rb_left)
         {
-          xParent->rb_left = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+          xParent->rb_left = Y;
         }
       else
         {
-          xParent->rb_right = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+          xParent->rb_right = Y;
         }
     }
   else
     {
-      root->rb_node = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+      root->rb_node = Y;
     }
 
   /* link X and Y */
-  Y->rb_left = (struct ep_rb_node *) ADDR_LTOSH_EXT (X);
-  X->rb_parent = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+  Y->rb_left = X;
+  X->rb_parent = Y;
 
   return;
 }
@@ -99,15 +97,14 @@ __ep_rb_rotate_right (struct ep_rb_node *X, struct ep_rb_root *root)
     /****************************
      *  rotate Node X to right  *
      ****************************/
-  struct ep_rb_node *Y = (struct ep_rb_node *) ADDR_SHTOL (X->rb_left);
+  struct ep_rb_node *Y = X->rb_left;
 
   /* establish X->Left link */
   X->rb_left = Y->rb_right;
 
   if (Y->rb_right != NULL)
     {
-      ((struct ep_rb_node *) ADDR_SHTOL (Y->rb_right))->rb_parent =
-        (struct ep_rb_node *) ADDR_LTOSH_EXT (X);
+      Y->rb_right->rb_parent = X;
     }
 
   /* establish Y->Parent link */
@@ -115,31 +112,30 @@ __ep_rb_rotate_right (struct ep_rb_node *X, struct ep_rb_root *root)
 
   if (X->rb_parent)
     {
-      struct ep_rb_node *xParent =
-        (struct ep_rb_node *) ADDR_SHTOL (X->rb_parent);
+      struct ep_rb_node *xParent = X->rb_parent;
 
-      if (X == (struct ep_rb_node *) ADDR_SHTOL (xParent->rb_right))
+      if (X == xParent->rb_right)
         {
-          xParent->rb_right = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+          xParent->rb_right = Y;
         }
       else
         {
-          xParent->rb_left = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+          xParent->rb_left = Y;
         }
     }
   else
     {
-      root->rb_node = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+      root->rb_node = Y;
     }
 
   /* link X and Y */
-  Y->rb_right = (struct ep_rb_node *) ADDR_LTOSH_EXT (X);
-  X->rb_parent = (struct ep_rb_node *) ADDR_LTOSH_EXT (Y);
+  Y->rb_right = X;
+  X->rb_parent = Y;
 
   return;
 }
 
-#define EP_RBTREE_PARENT(X) ((struct ep_rb_node*) ADDR_SHTOL((X)->rb_parent))
+#define EP_RBTREE_PARENT(X) ((X)->rb_parent)
 #define EP_RBTREE_GRANDF(X) EP_RBTREE_PARENT(EP_RBTREE_PARENT(X))
 
 /* X, Y are for application */
@@ -151,14 +147,12 @@ ep_rb_insert_color (struct ep_rb_node *X, struct ep_rb_root *root)
      *  after inserting node X           *
      *************************************/
   /* check red-black properties */
-  while (X != (struct ep_rb_node *) ADDR_SHTOL (root->rb_node)
-         && EP_RBTREE_PARENT (X)->color == EP_RB_RED)
+  while (X != root->rb_node && EP_RBTREE_PARENT (X)->color == EP_RB_RED)
     {
       /* we have a violation */
       if (X->rb_parent == EP_RBTREE_GRANDF (X)->rb_left)
         {
-          struct ep_rb_node *Y =
-            (struct ep_rb_node *) ADDR_SHTOL (EP_RBTREE_GRANDF (X)->rb_right);
+          struct ep_rb_node *Y = EP_RBTREE_GRANDF (X)->rb_right;
 
           if (Y && Y->color == EP_RB_RED)
             {
@@ -173,9 +167,7 @@ ep_rb_insert_color (struct ep_rb_node *X, struct ep_rb_root *root)
             {
 
               /* uncle is black */
-              if (X ==
-                  (struct ep_rb_node *)
-                  ADDR_SHTOL (EP_RBTREE_PARENT (X)->rb_right))
+              if (X == EP_RBTREE_PARENT (X)->rb_right)
                 {
                   /* make X a left child */
                   X = EP_RBTREE_PARENT (X);
@@ -191,8 +183,7 @@ ep_rb_insert_color (struct ep_rb_node *X, struct ep_rb_root *root)
       else
         {
           /* mirror image of above code */
-          struct ep_rb_node *Y =
-            (struct ep_rb_node *) ADDR_SHTOL (EP_RBTREE_GRANDF (X)->rb_left);
+          struct ep_rb_node *Y = EP_RBTREE_GRANDF (X)->rb_left;
 
           if (Y && (Y->color == EP_RB_RED))
             {
@@ -207,9 +198,7 @@ ep_rb_insert_color (struct ep_rb_node *X, struct ep_rb_root *root)
             {
 
               /* uncle is black */
-              if (X ==
-                  (struct ep_rb_node *)
-                  ADDR_SHTOL (EP_RBTREE_PARENT (X)->rb_left))
+              if (X == EP_RBTREE_PARENT (X)->rb_left)
                 {
                   X = EP_RBTREE_PARENT (X);
                   __ep_rb_rotate_right (X, root);
@@ -222,7 +211,7 @@ ep_rb_insert_color (struct ep_rb_node *X, struct ep_rb_root *root)
         }
     }
 
-  ((struct ep_rb_node *) ADDR_SHTOL (root->rb_node))->color = EP_RB_BLACK;
+  root->rb_node->color = EP_RB_BLACK;
 
   return;
 }
@@ -235,8 +224,7 @@ __ep_rb_erase_color (struct ep_rb_node *X, struct ep_rb_node *Parent,
      *  maintain red-black tree balance  *
      *  after deleting node X            *
      *************************************/
-  while (X != (struct ep_rb_node *) ADDR_SHTOL (root->rb_node)
-         && (!X || X->color == EP_RB_BLACK))
+  while (X != root->rb_node && (!X || X->color == EP_RB_BLACK))
     {
 
       if (Parent == NULL)
@@ -244,117 +232,96 @@ __ep_rb_erase_color (struct ep_rb_node *X, struct ep_rb_node *Parent,
           break;
         }
 
-      if (X == (struct ep_rb_node *) ADDR_SHTOL (Parent->rb_left))
+      if (X == Parent->rb_left)
         {
-          struct ep_rb_node *W =
-            (struct ep_rb_node *) ADDR_SHTOL (Parent->rb_right);
+          struct ep_rb_node *W = Parent->rb_right;
 
           if (W->color == EP_RB_RED)
             {
               W->color = EP_RB_BLACK;
               Parent->color = EP_RB_RED;        /* Parent != NIL? */
               __ep_rb_rotate_left (Parent, root);
-              W = (struct ep_rb_node *) ADDR_SHTOL (Parent->rb_right);
+              W = Parent->rb_right;
             }
 
-          if ((!W->rb_left
-               || ((struct ep_rb_node *) ADDR_SHTOL (W->rb_left))->color ==
-               EP_RB_BLACK) && (!W->rb_right
-                                || ((struct ep_rb_node *)
-                                    ADDR_SHTOL (W->rb_right))->color ==
-                                EP_RB_BLACK))
+          if ((!W->rb_left || W->rb_left->color == EP_RB_BLACK)
+              && (!W->rb_right || W->rb_right->color == EP_RB_BLACK))
             {
               W->color = EP_RB_RED;
               X = Parent;
-              Parent = (struct ep_rb_node *) ADDR_SHTOL (X->rb_parent);
+              Parent = X->rb_parent;
             }
           else
             {
-              if (!W->rb_right
-                  || ((struct ep_rb_node *) ADDR_SHTOL (W->rb_right))->color
-                  == EP_RB_BLACK)
+              if (!W->rb_right || W->rb_right->color == EP_RB_BLACK)
                 {
                   if (W->rb_left != NULL)
                     {
-                      ((struct ep_rb_node *) ADDR_SHTOL (W->rb_left))->color
-                        = EP_RB_BLACK;
+                      W->rb_left->color = EP_RB_BLACK;
                     }
 
                   W->color = EP_RB_RED;
                   __ep_rb_rotate_right (W, root);
-                  W = (struct ep_rb_node *) ADDR_SHTOL (Parent->rb_right);
+                  W = Parent->rb_right;
                 }
 
               W->color = Parent->color;
               Parent->color = EP_RB_BLACK;
 
-              if (((struct ep_rb_node *) ADDR_SHTOL (W->rb_right))->color !=
-                  EP_RB_BLACK)
+              if (W->rb_right->color != EP_RB_BLACK)
                 {
-                  ((struct ep_rb_node *) ADDR_SHTOL (W->rb_right))->color =
-                    EP_RB_BLACK;
+                  W->rb_right->color = EP_RB_BLACK;
                 }
 
               __ep_rb_rotate_left (Parent, root);
-              X = (struct ep_rb_node *) ADDR_SHTOL (root->rb_node);
+              X = root->rb_node;
               break;
             }
         }
       else
         {
 
-          struct ep_rb_node *W =
-            (struct ep_rb_node *) ADDR_SHTOL (Parent->rb_left);
+          struct ep_rb_node *W = Parent->rb_left;
 
           if (W->color == EP_RB_RED)
             {
               W->color = EP_RB_BLACK;
               Parent->color = EP_RB_RED;        /* Parent != NIL? */
               __ep_rb_rotate_right (Parent, root);
-              W = (struct ep_rb_node *) ADDR_SHTOL (Parent->rb_left);
+              W = Parent->rb_left;
             }
 
-          if ((!W->rb_left
-               || (((struct ep_rb_node *) ADDR_SHTOL (W->rb_left))->color ==
-                   EP_RB_BLACK)) && (!W->rb_right
-                                     ||
-                                     (((struct ep_rb_node *)
-                                       ADDR_SHTOL (W->rb_right))->color ==
-                                      EP_RB_BLACK)))
+          if ((!W->rb_left || (W->rb_left->color == EP_RB_BLACK))
+              && (!W->rb_right || (W->rb_right->color == EP_RB_BLACK)))
             {
               W->color = EP_RB_RED;
               X = Parent;
-              Parent = (struct ep_rb_node *) ADDR_SHTOL (X->rb_parent);
+              Parent = X->rb_parent;
             }
           else
             {
-              if (!W->rb_left
-                  || ((struct ep_rb_node *) ADDR_SHTOL (W->rb_left))->color
-                  == EP_RB_BLACK)
+              if (!W->rb_left || W->rb_left->color == EP_RB_BLACK)
                 {
                   if (W->rb_right != NULL)
                     {
-                      ((struct ep_rb_node *)
-                       ADDR_SHTOL (W->rb_right))->color = EP_RB_BLACK;
+                      W->rb_right->color = EP_RB_BLACK;
                     }
 
                   W->color = EP_RB_RED;
                   __ep_rb_rotate_left (W, root);
-                  W = (struct ep_rb_node *) ADDR_SHTOL (Parent->rb_left);
+                  W = Parent->rb_left;
                 }
 
               W->color = Parent->color;
               Parent->color = EP_RB_BLACK;
 
-              if (((struct ep_rb_node *) ADDR_SHTOL (W->rb_left))->color !=
-                  EP_RB_BLACK)
+              if (W->rb_left->color != EP_RB_BLACK)
                 {
-                  ((struct ep_rb_node *) ADDR_SHTOL (W->rb_left))->color =
-                    EP_RB_BLACK;
+                  W->rb_left->color = EP_RB_BLACK;
                 }
 
               __ep_rb_rotate_right (Parent, root);
-              X = (struct ep_rb_node *) ADDR_SHTOL (root->rb_node);
+              X = root->rb_node;
               break;
             }
         }
@@ -376,48 +343,43 @@ ep_rb_erase (struct ep_rb_node *node, struct ep_rb_root *root)
 
   if (!node->rb_left)
     {
-      child = (struct ep_rb_node *) ADDR_SHTOL (node->rb_right);
+      child = node->rb_right;
     }
   else if (!node->rb_right)
     {
-      child = (struct ep_rb_node *) ADDR_SHTOL (node->rb_left);
+      child = node->rb_left;
     }
   else
     {
       struct ep_rb_node *old = node, *left;
 
-      node = (struct ep_rb_node *) ADDR_SHTOL (node->rb_right);
+      node = node->rb_right;
 
-      while ((left =
-              (struct ep_rb_node *) ADDR_SHTOL (node->rb_left)) != NULL)
+      while ((left = node->rb_left) != NULL)
         {
           node = left;
         }
 
       if (old->rb_parent)
         {
-          struct ep_rb_node *oldParent =
-            (struct ep_rb_node *) ADDR_SHTOL (old->rb_parent);
+          struct ep_rb_node *oldParent = old->rb_parent;
 
-          if (oldParent->rb_left ==
-              (struct ep_rb_node *) ADDR_LTOSH_EXT (old))
+          if (oldParent->rb_left == old)
             {
-              oldParent->rb_left =
-                (struct ep_rb_node *) ADDR_LTOSH_EXT (node);
+              oldParent->rb_left = node;
             }
           else
             {
-              oldParent->rb_right =
-                (struct ep_rb_node *) ADDR_LTOSH_EXT (node);
+              oldParent->rb_right = node;
             }
         }
       else
         {
-          root->rb_node = (struct ep_rb_node *) ADDR_LTOSH_EXT (node);
+          root->rb_node = node;
         }
 
-      child = (struct ep_rb_node *) ADDR_SHTOL (node->rb_right);
-      parent = (struct ep_rb_node *) ADDR_SHTOL (node->rb_parent);
+      child = node->rb_right;
+      parent = node->rb_parent;
       color = node->color;
 
       if (parent == old)
@@ -428,22 +390,19 @@ ep_rb_erase (struct ep_rb_node *node, struct ep_rb_root *root)
         {
           if (child)
             {
-              child->rb_parent =
-                (struct ep_rb_node *) ADDR_LTOSH_EXT (parent);
+              child->rb_parent = parent;
             }
 
-          parent->rb_left = (struct ep_rb_node *) ADDR_LTOSH_EXT (child);
+          parent->rb_left = child;
 
           node->rb_right = old->rb_right;
-          ((struct ep_rb_node *) ADDR_SHTOL (old->rb_right))->rb_parent =
-            (struct ep_rb_node *) ADDR_LTOSH_EXT (node);
+          old->rb_right->rb_parent = node;
         }
 
       node->color = old->color;
       node->rb_parent = old->rb_parent;
       node->rb_left = old->rb_left;
-      ((struct ep_rb_node *) ADDR_SHTOL (old->rb_left))->rb_parent =
-        (struct ep_rb_node *) ADDR_LTOSH_EXT (node);
+      old->rb_left->rb_parent = node;
 
       if (color == EP_RB_BLACK)
         {
@@ -454,28 +413,28 @@ ep_rb_erase (struct ep_rb_node *node, struct ep_rb_root *root)
 
     }
 
-  parent = (struct ep_rb_node *) ADDR_SHTOL (node->rb_parent);
+  parent = node->rb_parent;
   color = node->color;
 
   if (child)
     {
-      child->rb_parent = (struct ep_rb_node *) ADDR_LTOSH_EXT (parent);
+      child->rb_parent = parent;
     }
 
   if (parent)
     {
-      if (parent->rb_left == (struct ep_rb_node *) ADDR_LTOSH_EXT (node))
+      if (parent->rb_left == node)
         {
-          parent->rb_left = (struct ep_rb_node *) ADDR_LTOSH_EXT (child);
+          parent->rb_left = child;
         }
       else
         {
-          parent->rb_right = (struct ep_rb_node *) ADDR_LTOSH_EXT (child);
+          parent->rb_right = child;
         }
     }
   else
     {
-      root->rb_node = (struct ep_rb_node *) ADDR_LTOSH_EXT (child);
+      root->rb_node = child;
     }
 
   if (color == EP_RB_BLACK)

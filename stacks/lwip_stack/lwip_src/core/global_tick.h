@@ -13,9 +13,17 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
+#ifndef _GLOBAL_TICK_H_
+#define _GLOBAL_TICK_H_
 
-#include "nsfw_init.h"
-#include "nsfw_mem_api.h"
+#define DFX_TMR_INTERVAL 60000  /*60 seconds */
+typedef struct nstack_tick_info
+{
+  uint64_t *tick_ptr;           // tick from shared memory
+  uint64_t interval;            // tick interval, only used in stack process
+  /* tick reference, updated periodically and read in tcpip_thread only */
+  struct timeval ref_time;      // ref tick time
+  uint64_t ref_tick;            // ref tick
+} nstack_tick_info_t;
 
-NSFW_MODULE_NAME (NSFW_MEM_MGR_MODULE)
-NSFW_MODULE_PRIORITY (10) NSFW_MODULE_INIT (nsfw_mem_init)
+#endif

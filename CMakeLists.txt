@@ -110,21 +110,23 @@ if(WITH_HAL_LIB)
 else()
 FILE(APPEND ${post_compile}
 "
+mkdir -p ${DMM_REL_INC_DIR}
 
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/nstack_dmm_api.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/adapt/nstack_dmm_adpt.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/adapt/nstack_share_res.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/declare_syscalls.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/include/* ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/base/include/*.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/base/include/common/* ${CMAKE_CURRENT_LIST_DIR}/release/include/
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/nstack_dmm_api.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/adapt/nstack_dmm_adpt.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/adapt/nstack_share_res.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/declare_syscalls.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/include/* ${DMM_REL_INC_DIR}
+cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/base/include/*.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/*.h ${DMM_REL_INC_DIR}
+cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/generic ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/arch/${DMM_ARCH}/* ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/ipc/mgr_com/mgr_com.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/hal/hal.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/nstack_dmm_api.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/ipc/ps/*.h ${DMM_REL_INC_DIR}
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/ring/*.h ${DMM_REL_INC_DIR}
 
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/*.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/generic ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/arch/${DMM_ARCH}/* ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/ipc/mgr_com/mgr_com.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/hal/hal.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/nstack_dmm_api.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
 echo post compile process success.
 "
 )
@@ -143,15 +145,15 @@ echo post clean process success.
 "
 )
 
-ADD_CUSTOM_TARGET(DPDK ALL COMMAND sh post_compile.sh)
-ADD_DEPENDENCIES(DPDK dmm_api)
+ADD_CUSTOM_TARGET(post-compile ALL COMMAND sh post_compile.sh)
+ADD_DEPENDENCIES(post-compile dmm_api)
 
 ADD_CUSTOM_TARGET(pkg-rpm COMMAND sh ../scripts/generate_dmm_rpm.sh)
 
 ADD_CUSTOM_TARGET(pkg-deb COMMAND sh ../scripts/generate_dmm_deb.sh)
 
 ADD_CUSTOM_TARGET(vpp-stack COMMAND sh ../scripts/build_vpp.sh)
-ADD_DEPENDENCIES(vpp-stack DPDK)
+ADD_DEPENDENCIES(vpp-stack post-compile)
 
 ADD_CUSTOM_TARGET(checkstyle
  COMMAND bash  ${CMAKE_CURRENT_LIST_DIR}/scripts/checkstyle.sh -c)

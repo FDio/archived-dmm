@@ -24,6 +24,7 @@
 #include "nstack_log.h"
 
 #define NSFW_MEM_MGR_MODULE "nsfw_mem_mgr"
+#define NSFW_MEM_STAT_MODULE "nsfw_mem_stat_module"
 
 /*
  *the max len of memory name is 32bytes, but app just can use max 22bytes, left 10bytes to memory manager module

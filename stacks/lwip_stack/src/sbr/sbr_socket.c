@@ -15,6 +15,9 @@
 */
 
 #include <dlfcn.h>
+#include "nsfw_init.h"
+#include "nsfw_ps_mem_api.h"
+#include "mgr_com.h"
 #include "sbr_protocol_api.h"
 #include "sbr_res_mgr.h"
 #include "nstack_log.h"
@@ -1236,6 +1239,22 @@ SBR_INTERCEPT (void, fork_free_fd, (int s, pid_t p, pid_t c))
   sbr_free_fd (s);
 }
 
+static void
+nstack_stack_init_module_param ()
+{
+  /* We have to use static for nstack_framework_setModuleParam save the address */
+  static nsfw_mem_para stinfo = { 0 };
+
+  stinfo.iargsnum = 0;
+  stinfo.pargs = NULL;
+  stinfo.enflag = NSFW_PROC_APP;
+
+  (void) nstack_framework_setModuleParam (NSFW_MEM_MGR_MODULE,
+                                          (void *) &stinfo);
+  (void) nstack_framework_setModuleParam (NSFW_PS_MEM_MODULE,
+                                          (void *) (u64) NSFW_PROC_APP);
+}
+
 /*****************************************************************************
 *   Prototype    : nstack_stack_register
 *   Description  : reg api to nsocket
@@ -1270,5 +1289,8 @@ nstack_stack_register (nstack_proc_cb * ops, nstack_event_cb * val)
   (ops->extern_ops).fork_parent_fd = GET_SBR_INTERCEPT (fork_parent_fd);
   (ops->extern_ops).fork_child_fd = GET_SBR_INTERCEPT (fork_child_fd);
   (ops->extern_ops).fork_free_fd = GET_SBR_INTERCEPT (fork_free_fd);
+
+  nstack_stack_init_module_param ();
+
   return 0;
 }

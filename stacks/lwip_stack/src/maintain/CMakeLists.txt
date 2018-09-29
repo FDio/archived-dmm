@@ -17,7 +17,7 @@
 if(WITH_HAL_LIB)
 else()
     SET(PAL_H_DIRECTORIES "/usr/include/dpdk/")
-    SET(PAL_BITWIDE_ADJUST ${PROJECT_SOURCE_DIR}/../../src/framework/common/base/include/common_pal_bitwide_adjust.h)
+    SET(PAL_BITWIDE_ADJUST ${PROJECT_SOURCE_DIR}/src/include/common_pal_bitwide_adjust.h)
     ADD_DEFINITIONS(-include ${PAL_BITWIDE_ADJUST})
     INCLUDE_DIRECTORIES(
         ${PAL_H_DIRECTORIES}

@@ -15,28 +15,10 @@
 */
 
 #include "nsfw_init.h"
-#include "nsfw_mgr_com_api.h"
-#include "nsfw_recycle_api.h"
+#include "nsfw_mem_api.h"
+#include "mgr_com.h"
 
-#ifdef __cplusplus
-/* *INDENT-OFF* */
-extern "C"{
-/* *INDENT-ON* */
-#endif /* __cplusplus */
-
-#define NSACK_NSOCKET_MODULE  "nSocket"
-
-extern int nstack_app_init (void *ppara);
-/* *INDENT-OFF* */
-NSFW_MODULE_NAME (NSACK_NSOCKET_MODULE)
-NSFW_MODULE_PRIORITY (90)
-NSFW_MODULE_DEPENDS (NSFW_MGR_COM_MODULE)
-//NSFW_MODULE_DEPENDS (NSFW_MEM_MGR_MODULE)
-NSFW_MODULE_DEPENDS (NSFW_RECYCLE_MODULE)
-NSFW_MODULE_INIT (nstack_app_init)
-/* *INDENT-ON* */
-#ifdef __cplusplus
-/* *INDENT-OFF* */
-}
-/* *INDENT-ON* */
-#endif /* __cplusplus */
+NSFW_MODULE_NAME (NSFW_MEM_MGR_MODULE)
+NSFW_MODULE_PRIORITY (30)
+NSFW_MODULE_DEPENDS (NSFW_MEM_STAT_MODULE)
+NSFW_MODULE_DEPENDS (NSFW_MGR_COM_MODULE) NSFW_MODULE_INIT (nsfw_mem_init)

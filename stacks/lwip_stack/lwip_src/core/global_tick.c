@@ -15,10 +15,12 @@
 */
 
 #include "nsfw_mem_api.h"
-#include "nstack_share_res.h"
+#include "global_tick.h"
 #include "nstack_securec.h"
+#include "nstack_share_res.h"
 
-extern nstack_tick_info_t g_nstack_timer_tick;
+/** global timer tick */
+nstack_tick_info_t g_nstack_timer_tick;
 
 int
 init_stackx_global_tick (void)
@@ -44,5 +46,30 @@ init_stackx_global_tick (void)
       return -1;
     }
 
+  return 0;
+}
+
+int
+nstack_lookup_share_global_tick ()
+{
+  int ret;
+  nsfw_mem_name name = {.entype = NSFW_SHMEM,.enowner = NSFW_PROC_MAIN };
+
+  ret = STRCPY_S (name.aname, NSFW_MEM_NAME_LENGTH, NSTACK_GLOBAL_TICK_SHM);
+  if (EOK != ret)
+    {
+      NSSOC_LOGERR ("STRCPY_S failed]name=%s,ret=%d", NSTACK_GLOBAL_TICK_SHM,
+                    ret);
+      return -1;
+    }
+
+  g_nstack_timer_tick.tick_ptr = (uint64_t *) nsfw_mem_zone_lookup (&name);
+  if (NULL == g_nstack_timer_tick.tick_ptr)
+    {
+      NSPOL_LOGERR ("Failed to lookup global timer tick memory");
+      return -1;
+    }
+
+  NSSOC_LOGDBG ("ok");
   return 0;
 }

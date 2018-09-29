@@ -18,9 +18,8 @@
 #define NSTACK_SHARE_RES_H
 
 #include <stdint.h>
-#include "common_mem_spinlock.h"
 #include "nstack_log.h"
-#include "common_func.h"
+#include "dmm_spinlock.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -43,19 +42,9 @@ typedef struct unmatch_ver_info
   char first_time_stamp[LOG_TIME_STAMP_LEN];
 } unmatch_ver_info_t;
 
-#define DFX_TMR_INTERVAL 60000  /*60 seconds */
-typedef struct nstack_tick_info
-{
-  uint64_t *tick_ptr;           // tick from shared memory
-  uint64_t interval;            // tick interval, only used in stack process
-  /* tick reference, updated periodically and read in tcpip_thread only */
-  struct timeval ref_time;      // ref tick time
-  uint64_t ref_tick;            // ref tick
-} nstack_tick_info_t;
-
 int nstack_init_share_res ();
 int nstack_attach_share_res ();
-common_mem_spinlock_t *nstack_get_fork_share_lock ();
+dmm_spinlock_t *nstack_get_fork_share_lock ();
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

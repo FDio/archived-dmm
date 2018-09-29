@@ -21,23 +21,31 @@
 #endif
 
 #ifndef DMM_MAIN_SHARE_TYPE
-#define DMM_MAIN_SHARE_TYPE DMM_SHARE_FSHM      /* 1 */
+#define DMM_MAIN_SHARE_TYPE DMM_SHARE_FSHM
 #endif
 
 #ifndef DMM_MAIN_SHARE_SIZE
 #define DMM_MAIN_SHARE_SIZE 1024        /* Megabyte */
 #endif
 
+#ifndef DMM_MAIN_SHARE_BASE
+#define DMM_MAIN_SHARE_BASE 0x700080000000      /* fixed base address */
+#endif
+
 #ifndef DMM_SHARE_TYPE
-#define DMM_SHARE_TYPE DMM_SHARE_FSHM   /* 1 */
+#define DMM_SHARE_TYPE DMM_SHARE_FSHM
 #endif
 
 #ifndef DMM_SHARE_SIZE
-#define DMM_SHARE_SIZE 16       /* Megabyte */
+#define DMM_SHARE_SIZE 8        /* Megabyte */
 #endif
 
 #ifndef DMM_HUGE_DIR
-#define DMM_HUGE_DIR "/mnt/dmm-huge"
+#define DMM_HUGE_DIR "/mnt/nstackhuge"
+#endif
+
+#ifndef DMM_CACHE_LINE_SIZE
+#define DMM_CACHE_LINE_SIZE 64
 #endif
 
 #endif /* _DMM_CONFIG_H_ */

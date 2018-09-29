@@ -418,7 +418,7 @@ nsfw_resmgr_module_init (void *param)
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME(NSFW_RES_MGR_MODULE)
-NSFW_MODULE_PRIORITY(99)
+NSFW_MODULE_PRIORITY(50)
 NSFW_MODULE_INIT(nsfw_resmgr_module_init)
 /* *INDENT-ON* */
 

@@ -18,6 +18,7 @@
 #define _NSFW_RECYCLE_MODULE_H
 
 #include "nsfw_recycle_api.h"
+#include "dmm_ring.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -45,7 +46,6 @@ typedef struct _nsfw_recycle_obj
   u16 rec_type;
   u32 host_pid;
   void *data;
-  u64 u64reserve;
 } nsfw_recycle_obj;
 
 #define NSFW_REC_LOCK_REL_MAX_FUN 32
@@ -66,8 +66,8 @@ typedef struct _nsfw_recycle_pool
 typedef struct _nsfw_recycle_cfg
 {
   u16 rec_waite_end_tvalue;
-  mring_handle mem_rec_obj_pool;
-  mzone_handle mem_rec_pro[NSFW_REC_PRO_MAX];
+  nsfw_recycle_pool *mem_rec_obj_pool;
+  struct dmm_ring *mem_rec_pro[NSFW_REC_PRO_MAX];
 } nsfw_recycle_cfg;
 
 extern nsfw_rcc_stat nsfw_recycle_callback_all_obj (u32 pid,

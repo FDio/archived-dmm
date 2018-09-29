@@ -23,6 +23,8 @@ extern "C"{
 /* *INDENT-ON* */
 #endif /* __cplusplus */
 
+#include "types.h"
+
 #define NSFW_RECYCLE_MODULE "nsfw_recycle"
 
 typedef enum _nsfw_recycle_item_type

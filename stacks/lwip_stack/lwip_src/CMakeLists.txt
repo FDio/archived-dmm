@@ -23,24 +23,23 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-z,noexecstack -mcmodel=medium")
 ADD_DEFINITIONS(-D_GNU_SOURCE)
 ADD_DEFINITIONS(-DDPDK_MODULE=0)
 if(WITH_HAL_LIB)
-SET(RTP_CONFIG ${CMAKE_CURRENT_LIST_DIR}/../src/include/rtp_config.h)
 else()
     SET(PAL_H_DIRECTORIES "/usr/include/dpdk/")
-    SET(RTP_CONFIG ${PROJECT_SOURCE_DIR}/../../src/framework/common/base/include/common/common_sys_config.h)
     INCLUDE_DIRECTORIES(
         ${PAL_H_DIRECTORIES}
     )
 endif()
-SET(COMPLE_CONFIG ${CMAKE_CURRENT_LIST_DIR}/../src/include/compile_config.h)
-SET(MGR_COM ${CMAKE_CURRENT_LIST_DIR}/../src/include/mgr_com.h)
+
 ADD_DEFINITIONS(-include ${RTP_CONFIG})
 ADD_DEFINITIONS(-include ${COMPLE_CONFIG})
-ADD_DEFINITIONS(-include ${MGR_COM})
+ADD_DEFINITIONS(-include common_mem_api.h)
+
 if(WITH_SECUREC_LIB)
-LINK_LIBRARIES(pthread rt securec)
+  LINK_LIBRARIES(pthread rt securec)
 else()
-LINK_LIBRARIES(pthread rt)
+  LINK_LIBRARIES(pthread rt)
 endif()
+
 LINK_DIRECTORIES(${LIB_PATH_SHARED} ${LIB_PATH_STATIC})
 INCLUDE_DIRECTORIES(
 	${CMAKE_CURRENT_LIST_DIR}/../../../SecureC/include
@@ -60,6 +59,7 @@ FILE(GLOB RECYCLE recycle/*.c)
 FILE(GLOB_RECURSE MAINTAIN maintain/*.c)
 FILE(GLOB COMMON common/*.c)
 FILE(GLOB_RECURSE LWIPSRC lwip/arch/*.c lwip/core/*.c lwip/netif/*.c)
+
 FOREACH(item ${LWIPSRC})
   IF(${item} MATCHES "slipif.c")
     LIST(REMOVE_ITEM LWIPSRC ${item})

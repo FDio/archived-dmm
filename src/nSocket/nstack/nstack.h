@@ -17,6 +17,10 @@
 #ifndef _NSTACK_H_
 #define _NSTACK_H_
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <pthread.h>
 #include <time.h>
@@ -27,22 +31,12 @@
 #include "nstack_log.h"
 #include "nstack_module.h"
 #include "nstack_fd_mng.h"
-
 #include "nstack_types.h"
 #include "nstack_eventpoll.h"
-#include "common_mem_api.h"
 #include "nstack_select.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include "nstack_atomic.h"
-#include "common_mem_spinlock.h"
-#include "generic/common_mem_rwlock.h"
-
-#include "nsfw_mem_api.h"
 #include "nsfw_recycle_api.h"
+#include "dmm_rwlock.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -73,7 +67,7 @@ typedef struct
    */
   nstack_fd_Inf *lk_sockPoll;
 
-  common_mem_rwlock_t fork_lock;        /* to ensure that there is no fd to create and close when fork */
+  dmm_rwlock_t fork_lock;       /* to ensure that there is no fd to create and close when fork */
   uint32_t pid;
   char *nstack_version;
   int checkEpollFD;
@@ -109,7 +103,7 @@ void nstack_fork_fd_local_lock_info (nstack_fd_local_lock_info_t *
                                      local_lock);
 void nstack_reset_fd_local_lock_info (nstack_fd_local_lock_info_t *
                                       local_lock);
-common_mem_rwlock_t *get_fork_lock ();
+dmm_rwlock_t *get_fork_lock ();
 int nstack_for_epoll_init ();
 int nstack_stack_module_load ();
 

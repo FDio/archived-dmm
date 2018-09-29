@@ -23,6 +23,12 @@ typedef struct
   volatile int cnt;
 } dmm_atomic_t;
 
+inline static void
+dmm_atomic_set (dmm_atomic_t * a, int n)
+{
+  a->cnt = n;
+}
+
 inline static int
 dmm_atomic_get (dmm_atomic_t * a)
 {
@@ -36,9 +42,21 @@ dmm_atomic_add (dmm_atomic_t * a, int n)
 }
 
 inline static int
+dmm_atomic_inc (dmm_atomic_t * a)
+{
+  return dmm_atomic_add (a, 1);
+}
+
+inline static int
 dmm_atomic_sub (dmm_atomic_t * a, int n)
 {
   return __sync_fetch_and_sub (&a->cnt, n);
+}
+
+inline static int
+dmm_atomic_dec (dmm_atomic_t * a)
+{
+  return dmm_atomic_sub (a, 1);
 }
 
 inline static int
@@ -62,7 +80,7 @@ dmm_atomic_xor (dmm_atomic_t * a, int n)
 inline static int
 dmm_atomic_swap (dmm_atomic_t * a, int o, int n)
 {
-  return __sync_val_compare_and_swap (&a->cnt, o, n);
+  return __sync_bool_compare_and_swap (&a->cnt, o, n);
 }
 
 inline static int
@@ -108,16 +126,34 @@ dmm_atomic64_get (dmm_atomic64_t * a)
   return a->cnt;
 }
 
+inline static void
+dmm_atomic64_set (dmm_atomic64_t * a, int n)
+{
+  a->cnt = n;
+}
+
 inline static long long int
 dmm_atomic64_add (dmm_atomic64_t * a, int n)
 {
   return __sync_fetch_and_add (&a->cnt, n);
 }
 
+inline static int
+dmm_atomic64_inc (dmm_atomic64_t * a)
+{
+  return dmm_atomic64_add (a, 1);
+}
+
 inline static long long int
 dmm_atomic64_sub (dmm_atomic64_t * a, int n)
 {
   return __sync_fetch_and_sub (&a->cnt, n);
+}
+
+inline static int
+dmm_atomic64_dec (dmm_atomic64_t * a)
+{
+  return dmm_atomic64_sub (a, 1);
 }
 
 inline static long long int
@@ -141,7 +177,7 @@ dmm_atomic64_xor (dmm_atomic64_t * a, int n)
 inline static long long int
 dmm_atomic64_swap (dmm_atomic_t * a, int o, int n)
 {
-  return __sync_val_compare_and_swap (&a->cnt, o, n);
+  return __sync_bool_compare_and_swap (&a->cnt, o, n);
 }
 
 inline static long long int

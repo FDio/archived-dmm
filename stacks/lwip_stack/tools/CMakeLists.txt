@@ -46,6 +46,7 @@ TARGET_LINK_LIBRARIES(
     libjson-c.a
     libglog.a
     dmm_api
+    mem_mgr
     -Wl,--no-whole-archive,-lstdc++ -ldl
     rte_eal
     rte_mempool
@@ -61,6 +62,7 @@ TARGET_LINK_LIBRARIES(
         libjson-c.a
         libglog.a
         dmm_api
+        mem_mgr
         -Wl,--no-whole-archive,-lstdc++ -ldl
         rte_eal
         rte_mempool
@@ -70,9 +72,9 @@ TARGET_LINK_LIBRARIES(
 endif()
 
 if(WITH_SECUREC_LIB)
-ADD_DEPENDENCIES(ntcpdump JSON GLOG SECUREC DPDK)
+ADD_DEPENDENCIES(ntcpdump mem_mgr JSON GLOG SECUREC DPDK)
 else()
-ADD_DEPENDENCIES(ntcpdump JSON GLOG DPDK)
+ADD_DEPENDENCIES(ntcpdump mem_mgr JSON GLOG DPDK)
 endif()
 
 

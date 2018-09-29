@@ -851,7 +851,7 @@ ns_send_init_alarm (enum_alarm_id alarm_id)
 }
 
 NSFW_MODULE_NAME (NSFW_ALARM_MODULE)
-NSFW_MODULE_PRIORITY (10)
+NSFW_MODULE_PRIORITY (80)
 NSFW_MODULE_DEPENDS (NSTACK_DMM_MODULE)
 NSFW_MODULE_INIT (ns_alarm_module_init)
 #ifdef __cplusplus

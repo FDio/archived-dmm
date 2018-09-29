@@ -20,14 +20,14 @@
 #include "nsfw_init.h"
 
 #include "nsfw_mgr_com_api.h"
-#include "nsfw_mem_api.h"
 #include "nsfw_ps_api.h"
-#include "nsfw_ps_mem_api.h"
 #include "nsfw_fd_timer_api.h"
 #include "nsfw_recycle_module.h"
 #include "nsfw_maintain_api.h"
 #include "nstack_log.h"
-#include "common_mem_api.h"
+
+#include "dmm_memory.h"
+#include "dmm_sys.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -432,22 +432,13 @@ nsfw_recycle_obj_timeout (u32 timer_type, void *data)
 u8
 mem_rec_zone_init ()
 {
-  nsfw_mem_mring pringinfo;
-  pringinfo.enmptype = NSFW_MRING_MPMC;
-  pringinfo.isocket_id = NSFW_SOCKET_ANY;
-  pringinfo.stname.entype = NSFW_NSHMEM;
-  pringinfo.usnum = MEM_RECYCLE_PER_PRO_QUE;
+  size_t length;
   u32 i;
+
   for (i = 0; i < NSFW_REC_PRO_MAX; i++)
     {
-      if (-1 ==
-          SPRINTF_S (pringinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s%d",
-                     MEM_REC_QUEUE_NAME, i))
-        {
-          NSFW_LOGERR ("SPRINTF_S failed]");
-          return FALSE;
-        }
-      g_rec_cfg.mem_rec_pro[i] = nsfw_mem_ring_create (&pringinfo);
+      g_rec_cfg.mem_rec_pro[i] = dmm_malloc_ring (MEM_RECYCLE_PER_PRO_QUE,
+                                                  DMM_RING_INIT_MPMC);
       if (NULL == g_rec_cfg.mem_rec_pro[i])
         {
           NSFW_LOGERR ("alloc rec ring nul!");
@@ -455,66 +446,36 @@ mem_rec_zone_init ()
         }
     }
 
-  MEM_STAT (NSFW_RECYCLE_MODULE, MEM_REC_QUEUE_NAME, NSFW_NSHMEM,
-            NSFW_REC_PRO_MAX * nsfw_mem_get_len (g_rec_cfg.mem_rec_pro[0],
-                                                 NSFW_MEM_RING));
+//  MEM_STAT (NSFW_RECYCLE_MODULE, MEM_REC_QUEUE_NAME, NSFW_NSHMEM,
+//            NSFW_REC_PRO_MAX * nsfw_mem_get_len (g_rec_cfg.mem_rec_pro[0],
+//                                                 NSFW_MEM_RING));
 
-  nsfw_mem_zone pzoneinfo;
-  pzoneinfo.isocket_id = NSFW_SOCKET_ANY;
-  pzoneinfo.stname.entype = NSFW_NSHMEM;
-  pzoneinfo.length =
-    MEM_RECYCLE_OBJ_MAX_NUM * sizeof (nsfw_recycle_obj) +
-    sizeof (nsfw_recycle_pool);
-  if (-1 ==
-      SPRINTF_S (pzoneinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MEM_REC_POOL_NAME))
-    {
-      NSFW_LOGERR ("SPRINTF_S failed]");
-      return FALSE;
-    }
-
-  g_rec_cfg.mem_rec_obj_pool = nsfw_mem_zone_create (&pzoneinfo);
+  length = sizeof (nsfw_recycle_pool)
+    + MEM_RECYCLE_OBJ_MAX_NUM * sizeof (nsfw_recycle_obj);
+  g_rec_cfg.mem_rec_obj_pool = calloc (1, length);
   if (NULL == g_rec_cfg.mem_rec_obj_pool)
     {
       NSFW_LOGERR ("alloc rec pool nul!");
       return FALSE;
     }
 
-  MEM_STAT (NSFW_RECYCLE_MODULE, MEM_REC_POOL_NAME, NSFW_NSHMEM,
-            pzoneinfo.length);
+//  MEM_STAT (NSFW_RECYCLE_MODULE, MEM_REC_POOL_NAME, NSFW_NSHMEM,
+//            pzoneinfo.length);
 
-  int retval;
-  retval =
-    MEMSET_S (g_rec_cfg.mem_rec_obj_pool, pzoneinfo.length, 0,
-              pzoneinfo.length);
-  if (EOK != retval)
-    {
-      NSFW_LOGERR ("mem set init failed!");
-      return FALSE;
-    }
-
-  i32 j;
-  nsfw_recycle_pool *rec_pool =
-    (nsfw_recycle_pool *) g_rec_cfg.mem_rec_obj_pool;
+  nsfw_recycle_pool *rec_pool = g_rec_cfg.mem_rec_obj_pool;
   rec_pool->pool_size = MEM_RECYCLE_OBJ_MAX_NUM;
 
   nsfw_recycle_obj *p_start = rec_pool->obj;
   for (i = 0; i < NSFW_REC_PRO_MAX; i++)
     {
-      for (j = 0; j < MEM_RECYCLE_PER_PRO_QUE; j++)
+      int ret = dmm_array_enqueue (g_rec_cfg.mem_rec_pro[i], p_start,
+                                   MEM_RECYCLE_PER_PRO_QUE,
+                                   sizeof (nsfw_recycle_obj));
+      if (ret != MEM_RECYCLE_PER_PRO_QUE)
         {
-          if (FALSE == p_start[j].alloc_flag)
-            {
-              if (0 ==
-                  nsfw_mem_ring_enqueue (g_rec_cfg.mem_rec_pro[i],
-                                         &p_start[j]))
-                {
-                  NSFW_LOGERR ("enqueue failed");
-                  break;
-                }
-            }
+          NSFW_LOGERR ("enqueue failed");
         }
-      p_start = p_start + MEM_RECYCLE_PER_PRO_QUE;
+      p_start += MEM_RECYCLE_PER_PRO_QUE;
     }
 
   NSFW_LOGINF ("init rec pool and ring suc!");
@@ -543,8 +504,7 @@ nsfw_recycle_reg_obj (u8 priority, u16 rec_type, void *data)
     }
 
   nsfw_recycle_obj *obj = NULL;
-  if (0 ==
-      nsfw_mem_ring_dequeue (g_rec_cfg.mem_rec_pro[priority], (void *) &obj))
+  if (1 != dmm_dequeue (g_rec_cfg.mem_rec_pro[priority], (void **) &obj))
     {
       NSFW_LOGERR ("dequeue error]priority=%d,rec_type=%d,data=%p",
                    priority, rec_type, data);
@@ -553,7 +513,7 @@ nsfw_recycle_reg_obj (u8 priority, u16 rec_type, void *data)
 
   if (EOK != MEMSET_S (obj, sizeof (*obj), 0, sizeof (*obj)))
     {
-      if (0 == nsfw_mem_ring_enqueue (g_rec_cfg.mem_rec_pro[priority], obj))
+      if (1 != dmm_enqueue (g_rec_cfg.mem_rec_pro[priority], obj))
         {
           NSFW_LOGERR ("enqueue error]priority=%d,rec_type=%d,data=%p",
                        priority, rec_type, data);
@@ -651,8 +611,9 @@ nsfw_recycle_fork_init ()
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME (NSFW_RECYCLE_MODULE)
-NSFW_MODULE_PRIORITY (10)
-NSFW_MODULE_DEPENDS (NSFW_PS_MEM_MODULE)
+NSFW_MODULE_PRIORITY (60)
+NSFW_MODULE_DEPENDS (DMM_MEMORY_MODULE)
+NSFW_MODULE_DEPENDS (NSFW_PS_MODULE)
 NSFW_MODULE_INIT (nsfw_recycle_module_init)
 /* *INDENT-ON* */
 

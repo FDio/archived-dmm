@@ -23,8 +23,6 @@
 #include "types.h"
 #include "nstack_securec.h"
 #include "nsfw_init.h"
-#include "common_mem_api.h"
-
 #include "nstack_log.h"
 #include "nsfw_maintain_api.h"
 #include "nsfw_mgr_com_api.h"

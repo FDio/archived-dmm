@@ -34,7 +34,7 @@ ExternalProject_Add(
     BUILD_IN_SOURCE     1
     BUILD_COMMAND       make
     INSTALL_COMMAND     cp -f libdmm_rdmacm.a ${LIB_PATH_STATIC}/
-    DEPENDS             DPDK
+    DEPENDS             post-compile
 )
 set_target_properties(rdmacm PROPERTIES EXCLUDE_FROM_ALL TRUE)
 
@@ -56,6 +56,6 @@ TARGET_LINK_LIBRARIES(dmm_rsocket
     ibverbs pthread dl rt
 )
 
-ADD_DEPENDENCIES(dmm_rsocket rdmacm DPDK)
+ADD_DEPENDENCIES(dmm_rsocket rdmacm post-compile)
 
 set_target_properties(dmm_rsocket PROPERTIES EXCLUDE_FROM_ALL TRUE)

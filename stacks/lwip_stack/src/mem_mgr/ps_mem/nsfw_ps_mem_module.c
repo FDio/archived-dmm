@@ -912,7 +912,7 @@ nsfw_ps_mem_module_init (void *param)
 
 /* *INDENT-OFF* */
 NSFW_MODULE_NAME (NSFW_PS_MEM_MODULE)
-NSFW_MODULE_PRIORITY (10)
+NSFW_MODULE_PRIORITY (50)
 NSFW_MODULE_DEPENDS (NSFW_PS_MODULE)
 NSFW_MODULE_INIT (nsfw_ps_mem_module_init)
 /* *INDENT-ON* */

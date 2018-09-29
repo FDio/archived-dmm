@@ -26,6 +26,8 @@
 #include <unistd.h>
 #include <semaphore.h>
 
+#include "dmm_sys.h"
+
 #ifdef __cplusplus
 /* *INDENT-OFF* */
 extern "C" {
@@ -79,18 +81,6 @@ u32_t sys_arch_sem_trywait_v2 (sys_sem_t_v2 * sem);
 
 u32_t sys_arch_sem_wait_s_v2 (sys_sem_t_v2 sem);
 
-#define SYS_HOST_INITIAL_PID 1
-extern volatile pid_t g_sys_host_pid;
-pid_t sys_get_hostpid_from_file (pid_t pid);
-static inline pid_t
-get_sys_pid ()
-{
-  if (SYS_HOST_INITIAL_PID == g_sys_host_pid)
-    (void) sys_get_hostpid_from_file (getpid ());
-  return g_sys_host_pid;
-}
-
-pid_t updata_sys_pid ();
 u32_t sys_now (void);
 
 #define sys_sem_t sys_sem_t_v2
@@ -106,21 +96,10 @@ u32_t sys_now (void);
 #define sys_arch_sem_s_wait(sem, timeout) sys_arch_sem_wait_s_v2(sem)
 #define sys_arch_lock_with_pid(sem) (void)sys_arch_lock_with_pid_v2(sem)
 
-#define BUF_SIZE_FILEPATH 256
-#define STR_PID "pid:"
-#define READ_FILE_BUFLEN  512
-
-extern pid_t sys_get_hostpid_from_file (pid_t pid);
-extern pid_t get_hostpid_from_file (u32_t pid);
-extern void get_exec_name_by_pid (pid_t pid, char *task_name,
-                                  int task_name_len);
-
 static inline u32_t
 sys_arch_lock_with_pid_v2 (sys_sem_t_v2 sem)
 {
-  if (SYS_HOST_INITIAL_PID == g_sys_host_pid)
-    (void) sys_get_hostpid_from_file (getpid ());
-  dmm_spinlock_lock_with_pid (sem, g_sys_host_pid);
+  dmm_spinlock_lock_with_pid (sem, get_sys_pid ());
   return 0;
 }
 

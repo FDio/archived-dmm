@@ -15,6 +15,7 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <unistd.h>
 #include <limits.h>
 #include <sys/types.h>
@@ -22,7 +23,8 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-//#include "dmm_memory.h"
+#include "nsfw_base_linux_api.h"
+#include "nstack_log.h"
 #include "dmm_config.h"
 #include "dmm_group.h"
 #include "dmm_pause.h"
@@ -66,6 +68,7 @@ void
 dmm_group_active ()
 {
   main_group->group_init = DMM_GROUP_ACTIVE;
+  NSFW_LOGINF ("main group actived");
 }
 
 int
@@ -74,16 +77,21 @@ dmm_group_create_main ()
   int ret;
   const char *path = get_group_path ();
 
+  NSFW_LOGINF ("start create main group '%s'", path);
+
   group_fd = open (path, O_RDWR | O_CREAT, 0664);
   if (group_fd < 0)
     {
+      NSFW_LOGERR ("open file failed, path:'%s', errno=%d", path, errno);
       return -1;
     }
 
   ret = ftruncate (group_fd, sizeof (struct dmm_group));
   if (ret < 0)
     {
-      (void) close (group_fd);
+      NSFW_LOGERR ("set size failed, path:'%s' size:%lu, errno=%d",
+                   path, sizeof (struct dmm_group), errno);
+      (void) nsfw_base_close (group_fd);
       group_fd = -1;
       return -1;
     }
@@ -91,7 +99,8 @@ dmm_group_create_main ()
   ret = fcntl (group_fd, F_SETLK, &group_lock);
   if (ret < 0)
     {
-      (void) close (group_fd);
+      NSFW_LOGERR ("lock file failed, path:'%s', errno=%d", path, errno);
+      (void) nsfw_base_close (group_fd);
       group_fd = -1;
       return -1;
     }
@@ -102,10 +111,15 @@ dmm_group_create_main ()
 
   if (main_group == MAP_FAILED)
     {
-      (void) close (group_fd);
+      NSFW_LOGERR ("mmap failed, path:'%s' size:%lu, errno:%d",
+                   path, sizeof (struct dmm_group), errno);
+      (void) nsfw_base_close (group_fd);
       group_fd = -1;
       return -1;
     }
+
+  NSFW_LOGINF ("main group created, main_group:%p size:%lu",
+               main_group, sizeof (struct dmm_group));
 
   return 0;
 }
@@ -121,7 +135,7 @@ dmm_group_delete_main ()
 
   if (group_fd >= 0)
     {
-      (void) close (group_fd);
+      (void) nsfw_base_close (group_fd);
       group_fd = -1;
     }
 
@@ -135,17 +149,22 @@ dmm_group_attach_main ()
 {
   const char *path = get_group_path ();
 
+  NSFW_LOGINF ("Start attach main group '%s'", path);
+
   group_fd = open (path, O_RDONLY);
   if (group_fd < 0)
     {
+      NSFW_LOGERR ("open group file failed, path:'%s', errno=%d",
+                   path, errno);
       return -1;
     }
 
-  main_group = (struct dmm_group *) mmap (NULL, sizeof (struct dmm_group *),
+  main_group = (struct dmm_group *) mmap (NULL, sizeof (struct dmm_group),
                                           PROT_READ, MAP_SHARED, group_fd, 0);
   if (main_group == MAP_FAILED)
     {
-      (void) close (group_fd);
+      NSFW_LOGERR ("mmap failed, path:'%s', errno=%d", path, errno);
+      (void) nsfw_base_close (group_fd);
       group_fd = -1;
       return -1;
     }
@@ -157,11 +176,20 @@ dmm_group_attach_main ()
 
   if (kill (main_group->share.pid, 0))
     {
+      NSFW_LOGERR ("main group process not exist, path:'%s' pid:%d errno=%d",
+                   path, main_group->share.pid, errno);
       (void) munmap (main_group->share.base, main_group->share.size);
-      (void) close (group_fd);
+      (void) nsfw_base_close (group_fd);
+      (void) unlink (path);
       group_fd = -1;
       return -1;
     }
+
+  NSFW_LOGINF ("main group attached, main_group=%p"
+               " {type=%d pid=%d base=%p size=%ld path='%s'}",
+               main_group, main_group->share.type, main_group->share.pid,
+               main_group->share.base, main_group->share.size,
+               main_group->share.path);
 
   return 0;
 }
@@ -177,7 +205,7 @@ dmm_group_detach_main ()
 
   if (group_fd >= 0)
     {
-      (void) close (group_fd);
+      (void) nsfw_base_close (group_fd);
       group_fd = -1;
     }
 

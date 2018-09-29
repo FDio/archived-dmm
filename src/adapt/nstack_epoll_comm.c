@@ -15,13 +15,15 @@
 */
 
 #include "nstack_eventpoll.h"
-#include "nsfw_mem_api.h"
 #include "nstack_log.h"
 #include "nstack_securec.h"
 #include "nsfw_recycle_api.h"
 #include "nsfw_maintain_api.h"
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
+#include "dmm_memory.h"
+#include "dmm_sys.h"
 
 nsep_epollManager_t g_epollMng = {
   .infoSockMap = NULL,
@@ -37,7 +39,7 @@ nsep_find_ep (struct eventpoll *ep, int fd)
   struct ep_rb_node *rbp;
   struct epitem *epi, *epir = NULL;
   u32_t loopCnt = 0;
-  for (rbp = ADDR_SHTOL (ep->rbr.rb_node); rbp;)
+  for (rbp = (ep->rbr.rb_node); rbp;)
     {
       ++loopCnt;
       if (loopCnt > NSTACK_MAX_EPITEM_NUM)
@@ -46,11 +48,11 @@ nsep_find_ep (struct eventpoll *ep, int fd)
       epi = (struct epitem *) ep_rb_entry (rbp, struct epitem, rbn);
       if (fd > epi->fd)
         {
-          rbp = (struct ep_rb_node *) ADDR_SHTOL (rbp->rb_right);
+          rbp = (struct ep_rb_node *) (rbp->rb_right);
         }
       else if (fd < epi->fd)
         {
-          rbp = (struct ep_rb_node *) ADDR_SHTOL (rbp->rb_left);
+          rbp = (struct ep_rb_node *) (rbp->rb_left);
         }
       else
         {
@@ -72,8 +74,7 @@ nstack_ep_unlink (struct eventpoll *ep, struct epitem *epi)
 {
   int error = ENOENT;
 
-  if (ep_rb_parent (&epi->rbn) ==
-      (struct ep_rb_node *) ADDR_LTOSH_EXT (&epi->rbn))
+  if (ep_rb_parent (&epi->rbn) == &epi->rbn)
     {
       NSSOC_LOGWAR ("ep_rb_parent == epi->rbn");
       return error;
@@ -111,7 +112,7 @@ nsep_free_epitem (struct epitem *data)
       return 0;
     }
 
-  if (nsfw_mem_ring_enqueue (pool->ring, (void *) epiEntry) != 1)
+  if (1 != dmm_enqueue (pool->ring, (void *) epiEntry))
     {
       NSSOC_LOGERR ("Error to free epitem");
     }
@@ -123,15 +124,14 @@ nsep_initEpInfo (nsep_epollInfo_t * info)
 {
   int iindex = 0;
   EP_LIST_INIT (&info->epiList);
-  NSTACK_SEM_MALLOC (info->epiLock, 1);
-  NSTACK_SEM_MALLOC (info->freeLock, 1);
+  dmm_spin_init (&info->epiLock);
+  dmm_spin_init (&info->freeLock);
 
   info->rlfd = -1;
   info->rmidx = -1;
   info->fd = -1;
   info->ep = NULL;
   info->fdtype = 0;
-  info->private_data = NULL;
   info->epaddflag = 0;
   for (iindex = 0; iindex < NSEP_SMOD_MAX; iindex++)
     {
@@ -162,7 +162,7 @@ nsep_alloc_epinfo (nsep_epollInfo_t ** data)
   NSSOC_LOGDBG ("epinfo alloc begin");
 
   nsep_infoPool_t *pool = &nsep_getManager ()->infoPool;
-  if (0 == nsfw_mem_ring_dequeue (pool->ring, (void *) &head_info)
+  if (1 != dmm_dequeue (pool->ring, (void **) &head_info)
       || NULL == head_info)
     {
       NSSOC_LOGERR ("epinfo ring alloc failed]pool->ring=%p", pool->ring);
@@ -206,7 +206,7 @@ nsep_free_epinfo (nsep_epollInfo_t * info)
       return 0;
     }
 
-  if (nsfw_mem_ring_enqueue (pool->ring, (void *) info) != 1)
+  if (1 != dmm_enqueue (pool->ring, (void *) info))
     {
       NSSOC_LOGERR ("Error to free epinfo");
     }
@@ -282,8 +282,8 @@ nsep_init_eventpoll (struct eventpoll *ep)
       return -1;
     }
 
-  NSTACK_SEM_MALLOC (ep->lock, 1);
-  NSTACK_SEM_MALLOC (ep->sem, 1);
+  dmm_spin_init (&ep->lock);
+  dmm_spin_init (&ep->sem);
 
   EP_HLIST_INIT (&ep->rdlist);
   ep->ovflist = NSEP_EP_UNACTIVE_PTR;
@@ -321,7 +321,7 @@ nsep_free_eventpoll (struct eventpoll *ep)
       return 0;
     }
 
-  if (nsfw_mem_ring_enqueue (pool->ring, epEntry) != 1)
+  if (1 != dmm_enqueue (pool->ring, epEntry))
     {
       NSSOC_LOGERR ("Error to free eventpoll");
     }
@@ -342,8 +342,7 @@ nsep_alloc_eventpoll (struct eventpoll **data)
   struct eventpoll_pool *pool = &nsep_getManager ()->epollPool;
 
   NSSOC_LOGDBG ("ring:%p alloc eventpool begin", pool->ring);
-  if (0 == nsfw_mem_ring_dequeue (pool->ring, (void *) &p_head)
-      || NULL == p_head)
+  if (1 != dmm_dequeue (pool->ring, (void **) &p_head) || NULL == p_head)
     {
       NSSOC_LOGERR ("ring alloc eventpool failed]ring=%p", pool->ring);
       return -1;
@@ -371,7 +370,7 @@ NSTACK_STATIC int
 nsep_init_epitem (struct epitem *epi)
 {
   int retVal;
-  epi->rbn.rb_parent = (struct ep_rb_node *) ADDR_LTOSH_EXT (&epi->rbn);
+  epi->rbn.rb_parent = &epi->rbn;
   EP_HLIST_INIT_NODE (&epi->rdllink);
   EP_HLIST_INIT_NODE (&epi->lkFDllink);
   epi->nwait = 0;
@@ -389,7 +388,7 @@ nsep_init_epitem (struct epitem *epi)
   epi->revents = 0;
   epi->ovf_revents = 0;
   epi->fd = -1;
-  epi->private_data = NULL;
+  epi->epInfo = NULL;
 
   return 0;
 }
@@ -408,8 +407,8 @@ nsep_alloc_epitem (struct epitem **data)
 
   NSSOC_LOGDBG ("epitem alloc begin..");
 
-  if (0 == nsfw_mem_ring_dequeue (pool->ring, (void *) &p_head_entry)
-      || NULL == p_head_entry)
+  if (1 != dmm_dequeue (pool->ring, (void **) &p_head_entry) ||
+      NULL == p_head_entry)
     {
       NSSOC_LOGERR ("epitem ring alloc failed]ring=%p", pool->ring);
       return -1;
@@ -418,7 +417,7 @@ nsep_alloc_epitem (struct epitem **data)
   res_alloc (&p_head_entry->res_chk);
   p_head_entry->pid = get_sys_pid ();
 
-  if (nsep_init_epitem ((struct epitem *) p_head_entry))
+  if (nsep_init_epitem (p_head_entry))
     {
       (void) nsep_free_epitem ((struct epitem *) p_head_entry);
       p_head_entry = NULL;
@@ -457,7 +456,7 @@ nsep_epPoolInit (void *addr, size_t length)
   for (pos = 0; pos < NSTACK_MAX_EPOLL_INFO_NUM; pos++)
     {
       pool[pos].pid = 0;
-      if (-1 == nsfw_mem_ring_enqueue (manager->epollPool.ring, &pool[pos]))
+      if (1 != dmm_enqueue (manager->epollPool.ring, &pool[pos]))
         {
           NSSOC_LOGERR ("init fail to enqueue epitem]pos=%u", pos);
           return -1;
@@ -488,7 +487,7 @@ nsep_epitemPoolInit (void *addr, size_t length)
   for (pos = 0; pos < NSTACK_MAX_EPITEM_NUM; pos++)
     {
       pool[pos].pid = 0;
-      if (-1 == nsfw_mem_ring_enqueue (manager->epitemPool.ring, &pool[pos]))
+      if (1 != dmm_enqueue (manager->epitemPool.ring, &pool[pos]))
         {
           NSSOC_LOGERR ("init fail to enqueue epitem]pos=%u", pos);
           return -1;
@@ -524,7 +523,7 @@ nsep_epInfoPoolInit (void *addr, size_t length)
           return -1;
         }
 
-      if (-1 == nsfw_mem_ring_enqueue (manager->infoPool.ring, &pool[pos]))
+      if (1 != dmm_enqueue (manager->infoPool.ring, &pool[pos]))
         {
           NSSOC_LOGERR ("init fail to enqueue epInfo]pos=%u", pos);
           return -1;
@@ -538,30 +537,15 @@ nsep_epInfoPoolInit (void *addr, size_t length)
 NSTACK_STATIC int
 nsep_create_shmem (size_t length, char *name, nsep_shem_initFn_t initFn)
 {
-  nsfw_mem_zone pmeminfo;
-  mzone_handle phandle;
-  int ret;
+  void *mem = dmm_locked_map (length, name);
 
-  pmeminfo.ireserv = 0;
-  pmeminfo.isocket_id = NSFW_SOCKET_ANY;
-  pmeminfo.length = length;
-  ret =
-    STRCPY_S (pmeminfo.stname.aname, sizeof (pmeminfo.stname.aname), name);
-  if (EOK != ret)
-    {
-      NSSOC_LOGERR ("STRCPY_S failed]name=%s,ret=%d", name, ret);
-      return -1;
-    }
-  pmeminfo.stname.entype = NSFW_SHMEM;
-
-  phandle = nsfw_mem_zone_create (&pmeminfo);
-  if (NULL == phandle)
+  if (!mem)
     {
       NSSOC_LOGERR ("create nstack epoll memory failed]name=%s", name);
       return -1;
     }
 
-  if (0 != initFn ((void *) phandle, length))
+  if (0 != initFn (mem, length))
     {
       NSSOC_LOGERR ("Fail to init memory]name=%s", name);
       return -1;
@@ -573,25 +557,13 @@ nsep_create_shmem (size_t length, char *name, nsep_shem_initFn_t initFn)
 NSTACK_STATIC int
 nsep_create_epInfoMem ()
 {
-  nsfw_mem_mring pringinfo;
-  pringinfo.enmptype = NSFW_MRING_MPMC;
-  pringinfo.isocket_id = NSFW_SOCKET_ANY;
-  pringinfo.stname.entype = NSFW_SHMEM;
-  pringinfo.usnum = NSTACK_MAX_EPOLL_INFO_NUM;
-
-  if (-1 ==
-      SPRINTF_S (pringinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EPINFO_RING_NAME))
-    {
-      NSSOC_LOGERR ("Error to create ring]name=%s", pringinfo.stname.aname);
-      return -1;
-    }
-
-  mring_handle ring_handle = nsfw_mem_ring_create (&pringinfo);
-
+  struct dmm_ring *ring_handle =
+    dmm_create_ring (NSTACK_MAX_EPOLL_INFO_NUM, DMM_RING_INIT_MPMC,
+                     MP_NSTACK_EPINFO_RING_NAME);
   if (NULL == ring_handle)
     {
-      NSSOC_LOGERR ("Error to create ring]name=%s", pringinfo.stname.aname);
+      NSSOC_LOGERR ("Error to create ring]name=%s",
+                    MP_NSTACK_EPINFO_RING_NAME);
       return -1;
     }
 
@@ -606,36 +578,18 @@ nsep_create_epInfoMem ()
 NSTACK_STATIC int
 nsep_adpt_attach_epInfoMem ()
 {
-  nsfw_mem_name name;
-  name.entype = NSFW_SHMEM;
-  name.enowner = NSFW_PROC_MAIN;
-
-  if (-1 ==
-      SPRINTF_S (name.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EPINFO_RING_NAME))
-    {
-      NSSOC_LOGERR ("Error to attach ring]name=%s", name.aname);
-      return -1;
-    }
-  mring_handle ring_handle = nsfw_mem_ring_lookup (&name);
-
+  struct dmm_ring *ring_handle = dmm_lookup (MP_NSTACK_EPINFO_RING_NAME);
   if (NULL == ring_handle)
     {
-      NSSOC_LOGERR ("Error to attach ring]name=%s", name.aname);
+      NSSOC_LOGERR ("Error to attach ring]name=%s",
+                    MP_NSTACK_EPINFO_RING_NAME);
       return -1;
     }
 
   nsep_epollManager_t *manager = nsep_getManager ();
   manager->infoPool.ring = ring_handle;
 
-  if (-1 ==
-      SPRINTF_S (name.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EPOLL_INFO_NAME))
-    {
-      NSSOC_LOGERR ("SPRINTF_S failed]");
-      return -1;
-    }
-  manager->infoPool.pool = nsfw_mem_zone_lookup (&name);
+  manager->infoPool.pool = dmm_lookup (MP_NSTACK_EPOLL_INFO_NAME);
   if (NULL == manager->infoPool.pool)
     {
       NSSOC_LOGERR ("Error to attach memzone]name=%s",
@@ -648,25 +602,14 @@ nsep_adpt_attach_epInfoMem ()
 NSTACK_STATIC int
 nsep_create_epItemMem ()
 {
-  nsfw_mem_mring pringinfo;
-  pringinfo.enmptype = NSFW_MRING_MPMC;
-  pringinfo.isocket_id = NSFW_SOCKET_ANY;
-  pringinfo.stname.entype = NSFW_SHMEM;
-  pringinfo.usnum = NSTACK_MAX_EPITEM_NUM;
-
-  if (-1 ==
-      SPRINTF_S (pringinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EPITEM_RING_NAME))
-    {
-      NSSOC_LOGERR ("Error to create ring]name=%s", pringinfo.stname.aname);
-      return -1;
-    }
-
-  mring_handle ring_handle = nsfw_mem_ring_create (&pringinfo);
+  struct dmm_ring *ring_handle =
+    dmm_create_ring (NSTACK_MAX_EPITEM_NUM, DMM_RING_INIT_MPMC,
+                     MP_NSTACK_EPITEM_RING_NAME);
 
   if (NULL == ring_handle)
     {
-      NSSOC_LOGERR ("Error to create ring]name=%s", pringinfo.stname.aname);
+      NSSOC_LOGERR ("Error to create ring]name=%s",
+                    MP_NSTACK_EPITEM_RING_NAME);
       return -1;
     }
 
@@ -680,37 +623,19 @@ nsep_create_epItemMem ()
 NSTACK_STATIC int
 nsep_adpt_attach_epItemMem ()
 {
-  nsfw_mem_name name;
-  name.entype = NSFW_SHMEM;
-  name.enowner = NSFW_PROC_MAIN;
-
-  if (-1 ==
-      SPRINTF_S (name.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EPITEM_RING_NAME))
-    {
-      NSSOC_LOGERR ("Error to attach epItemMem]name=%s", name.aname);
-      return -1;
-    }
-
-  mring_handle ring_handle = nsfw_mem_ring_lookup (&name);
+  struct dmm_ring *ring_handle = dmm_lookup (MP_NSTACK_EPITEM_RING_NAME);
 
   if (NULL == ring_handle)
     {
-      NSSOC_LOGERR ("Error to attach ring]name=%s", name.aname);
+      NSSOC_LOGERR ("Error to attach ring]name=%s",
+                    MP_NSTACK_EPITEM_RING_NAME);
       return -1;
     }
 
   nsep_epollManager_t *manager = nsep_getManager ();
   manager->epitemPool.ring = ring_handle;
 
-  if (-1 ==
-      SPRINTF_S (name.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EPITEM_POOL))
-    {
-      NSSOC_LOGERR ("SPRINTF_S failed]");
-      return -1;
-    }
-  manager->epitemPool.pool = nsfw_mem_zone_lookup (&name);
+  manager->epitemPool.pool = dmm_lookup (MP_NSTACK_EPITEM_POOL);
   if (NULL == manager->epitemPool.pool)
     {
       NSSOC_LOGERR ("Error to attach memzone]name=%s", MP_NSTACK_EPITEM_POOL);
@@ -722,25 +647,14 @@ nsep_adpt_attach_epItemMem ()
 NSTACK_STATIC int
 nsep_create_eventpollMem ()
 {
-  nsfw_mem_mring pringinfo;
-  pringinfo.enmptype = NSFW_MRING_MPMC;
-  pringinfo.isocket_id = NSFW_SOCKET_ANY;
-  pringinfo.stname.entype = NSFW_SHMEM;
-  pringinfo.usnum = NSTACK_MAX_EPOLL_NUM;
-
-  if (-1 ==
-      SPRINTF_S (pringinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EVENTPOOL_RING_NAME))
-    {
-      NSSOC_LOGERR ("Error to create ring]name=%s", pringinfo.stname.aname);
-      return -1;
-    }
-
-  mring_handle ring_handle = nsfw_mem_ring_create (&pringinfo);
+  struct dmm_ring *ring_handle =
+    dmm_create_ring (NSTACK_MAX_EPOLL_NUM, DMM_RING_INIT_MPMC,
+                     MP_NSTACK_EVENTPOOL_RING_NAME);
 
   if (NULL == ring_handle)
     {
-      NSSOC_LOGERR ("Error to create ring]name=%s", pringinfo.stname.aname);
+      NSSOC_LOGERR ("Error to create ring]name=%s",
+                    MP_NSTACK_EVENTPOOL_RING_NAME);
       return -1;
     }
 
@@ -754,37 +668,17 @@ nsep_create_eventpollMem ()
 NSTACK_STATIC int
 nsep_adpt_attach_eventpollMem ()
 {
-  nsfw_mem_name name;
-  name.entype = NSFW_SHMEM;
-  name.enowner = NSFW_PROC_MAIN;
-
-  if (-1 ==
-      SPRINTF_S (name.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 MP_NSTACK_EVENTPOOL_RING_NAME))
-    {
-      NSSOC_LOGERR ("Error to attach ring]name=%s", name.aname);
-      return -1;
-    }
-
-  mring_handle ring_handle = nsfw_mem_ring_lookup (&name);
-
-  if (NULL == ring_handle)
-    {
-      NSSOC_LOGERR ("Error to create ring]name=%s", name.aname);
-      return -1;
-    }
-
   nsep_epollManager_t *manager = nsep_getManager ();
-  manager->epollPool.ring = ring_handle;
 
-  int retVal = SPRINTF_S (name.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                          MP_NSTACK_EVENTPOLL_POOL);
-  if (-1 == retVal)
+  manager->epollPool.ring = dmm_lookup (MP_NSTACK_EVENTPOOL_RING_NAME);
+  if (NULL == manager->epollPool.ring)
     {
-      NSSOC_LOGERR ("SPRINTF_S failed]ret=%d", retVal);
+      NSSOC_LOGERR ("Error to create ring]name=%s",
+                    MP_NSTACK_EVENTPOOL_RING_NAME);
       return -1;
     }
-  manager->epollPool.pool = nsfw_mem_zone_lookup (&name);
+
+  manager->epollPool.pool = dmm_lookup (MP_NSTACK_EVENTPOLL_POOL);
   if (NULL == manager->epollPool.pool)
     {
       NSSOC_LOGERR ("Error to attach memzone]name=%s",
@@ -841,6 +735,7 @@ nsep_adpt_attach_memory ()
 int
 nsep_adpt_reg_res_mgr ()
 {
+/* disable these operation
 
   nsep_epollManager_t *manager = nsep_getManager ();
 
@@ -874,6 +769,7 @@ nsep_adpt_reg_res_mgr ()
   (void) nsfw_res_mgr_reg (&scn_cfg_info);
   (void) nsfw_res_mgr_reg (&scn_cfg_item);
   (void) nsfw_res_mgr_reg (&scn_cfg_event);
+*/
   return 0;
 }
 
@@ -885,10 +781,11 @@ nsep_epitem_remove (nsep_epollInfo_t * pinfo, u32 pid)
   struct epitem *epi = NULL;
   u32_t i = 0;
   int icnt = 0;
-  (void) sys_arch_lock_with_pid (&pinfo->epiLock);
+
+  dmm_spin_lock_pid (&pinfo->epiLock);
   /*list head must be not null */
-  prenode = (struct list_node *) ADDR_SHTOL (pinfo->epiList.head);
-  nextnode = (struct list_node *) ADDR_SHTOL (prenode->next);
+  prenode = (struct list_node *) (pinfo->epiList.head);
+  nextnode = (struct list_node *) (prenode->next);
   while ((nextnode) && (i++ <= NSTACK_MAX_EPOLL_INFO_NUM))
     {
       epi = ep_list_entry (nextnode, struct epitem, fllink);
@@ -898,14 +795,14 @@ nsep_epitem_remove (nsep_epollInfo_t * pinfo, u32 pid)
           prenode->next = nextnode->next;
           nextnode->next = NULL;
           (void) nsep_free_epitem (epi);
-          nextnode = ADDR_SHTOL (prenode->next);
+          nextnode = (prenode->next);
           icnt++;
           continue;
         }
       prenode = nextnode;
-      nextnode = ADDR_SHTOL (nextnode->next);
+      nextnode = (nextnode->next);
     }
-  sys_sem_s_signal (&pinfo->epiLock);
+  dmm_spin_unlock (&pinfo->epiLock);
   if (i >= NSTACK_MAX_EPOLL_INFO_NUM)
     {
       NSSOC_LOGERR ("free pinfo:%p pid:%u, error maybe happen", pinfo, pid);
@@ -925,9 +822,9 @@ nsep_recycle_epfd (void *epinfo, u32 pid)
       NSSOC_LOGDBG ("input null, pid:%u", pid);
       return;
     }
-  (void) sys_arch_lock_with_pid (&info->freeLock);
+  (void) dmm_spin_lock_pid (&info->freeLock);
   ileftcnt = nsep_del_last_pid (&info->pidinfo, pid);
-  sys_sem_s_signal (&info->freeLock);
+  dmm_spin_unlock (&info->freeLock);
   /*no pid exist */
   if (-1 == ileftcnt)
     {
@@ -938,7 +835,7 @@ nsep_recycle_epfd (void *epinfo, u32 pid)
       NSSOC_LOGDBG ("recycle epfd:%d epinfo pid:%u begin...", info->fd, pid);
       if (0 == ileftcnt)
         {
-          ep = ADDR_SHTOL (info->ep);
+          ep = (info->ep);
           info->ep = NULL;
           (void) nsep_free_eventpoll (ep);
           (void) nsep_free_epinfo (info);
@@ -1036,14 +933,14 @@ NSTACK_STATIC
     {
       for (pos = 0; pos < NSTACK_MAX_EPOLL_INFO_NUM; pos++)
         {
-          if (pid == pool[pos].epiLock.locked)
+          if (pid == pool[pos].epiLock.lock)
             {
-              pool[pos].epiLock.locked = 0;
+              pool[pos].epiLock.lock = 0;
               NSFW_LOGWAR ("epiLock locked]pos=%u,pid=%u", pos, pid);
             }
-          if (pid == pool[pos].freeLock.locked)
+          if (pid == pool[pos].freeLock.lock)
             {
-              pool[pos].freeLock.locked = 0;
+              pool[pos].freeLock.lock = 0;
               NSFW_LOGWAR ("freelock locked]pos=%u,pid=%u", pos, pid);
             }
         }
@@ -1054,15 +951,15 @@ NSTACK_STATIC
     {
       for (pos = 0; pos < NSTACK_MAX_EPOLL_NUM; pos++)
         {
-          if (pid == ev_pool[pos].lock.locked)
+          if (pid == ev_pool[pos].lock.lock)
             {
-              ev_pool[pos].lock.locked = 0;
+              ev_pool[pos].lock.lock = 0;
               NSFW_LOGWAR ("event_pollLock locked]pos=%u,pid=%u", pos, pid);
             }
 
-          if (pid == ev_pool[pos].sem.locked)
+          if (pid == ev_pool[pos].sem.lock)
             {
-              ev_pool[pos].sem.locked = 0;
+              ev_pool[pos].sem.lock = 0;
               NSFW_LOGWAR ("event_pollLock sem]pos=%u,pid=%u", pos, pid);
             }
         }

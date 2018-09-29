@@ -18,6 +18,11 @@
 
 #define DMM_MEM_NAME_SIZE 32
 
+struct dmm_segment;
+
+void dmm_seg_lock (struct dmm_segment *seg);
+void dmm_seg_unlock (struct dmm_segment *seg);
+
 struct dmm_segment *dmm_seg_create (void *base, size_t size);
 struct dmm_segment *dmm_seg_attach (void *base, size_t size);
 void dmm_seg_dump (struct dmm_segment *seg);
@@ -29,7 +34,6 @@ void *dmm_mem_lookup (struct dmm_segment *seg,
                       const char name[DMM_MEM_NAME_SIZE]);
 void *dmm_mem_map (struct dmm_segment *seg, size_t size,
                    const char name[DMM_MEM_NAME_SIZE]);
-int dmm_mem_unmap (struct dmm_segment *seg,
-                   const char name[DMM_MEM_NAME_SIZE]);
+int dmm_mem_unmap (struct dmm_segment *seg, void *mem);
 
 #endif /* #ifndef _DMM_SEGMENT_H_ */

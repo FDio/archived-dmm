@@ -19,6 +19,7 @@
 #include <sys/socket.h>
 #include <poll.h>
 #include <sys/epoll.h>
+#include "dmm_atomic.h"
 
 #undef NSTACK_MK_DECL
 #define NSTACK_MK_DECL(ret, fn, args)   extern ret nstack_##fn args
@@ -56,7 +57,8 @@ int nstack_socket (int domain, int itype, int protocol);
 static inline void
 UNLOCK_SEND (int fd, nstack_fd_local_lock_info_t * local_lock)
 {
-  if ((NULL != local_lock) && atomic_dec (&local_lock->fd_ref) == 0)
+  if ((NULL != local_lock) &&
+      dmm_atomic_sub_return (&local_lock->fd_ref, 1) == 0)
     {
       release_fd (fd, local_lock);
     }
@@ -88,7 +90,8 @@ UNLOCK_SEND (int fd, nstack_fd_local_lock_info_t * local_lock)
 static inline void
 UNLOCK_EPOLL (int fd, nstack_fd_local_lock_info_t * local_lock)
 {
-  if ((NULL != local_lock) && atomic_dec (&local_lock->fd_ref) == 0)
+  if ((NULL != local_lock)
+      && dmm_atomic_sub_return (&local_lock->fd_ref, 1) == 0)
     {
       release_fd (fd, local_lock);
     }
@@ -97,8 +100,8 @@ UNLOCK_EPOLL (int fd, nstack_fd_local_lock_info_t * local_lock)
 #define LOCK_EPOLL_CTRL(fd_val, local_lock, epoll_fd, epoll_local_lock){\
     if (local_lock)\
     {\
-        atomic_inc(&local_lock->fd_ref);\
-        common_mem_spinlock_lock(&local_lock->close_lock);\
+        dmm_atomic_inc(&local_lock->fd_ref);\
+        dmm_spin_lock(&local_lock->close_lock);\
         nstack_fd_Inf* fd_inf = nstack_getValidInf(fd_val);\
         if (fd_inf)\
         {\
@@ -106,8 +109,8 @@ UNLOCK_EPOLL (int fd, nstack_fd_local_lock_info_t * local_lock)
             {\
                 NSSOC_LOGWAR("fd %d is not open [return]", fd_val);\
                 nstack_set_errno(EBADF);\
-                common_mem_spinlock_unlock(&local_lock->close_lock);\
-                if(atomic_dec(&local_lock->fd_ref)==0){   \
+                dmm_spin_unlock(&local_lock->close_lock);\
+                if(dmm_atomic_sub_return(&local_lock->fd_ref, 1)==0){ \
                     release_fd(fd_val, local_lock);\
                 }\
                 UNLOCK_EPOLL(epoll_fd, epoll_local_lock);\
@@ -122,8 +125,8 @@ UNLOCK_EPOLL_CTRL (int fd, nstack_fd_local_lock_info_t * local_lock)
 {
   if (local_lock)
     {
-      common_mem_spinlock_unlock (&local_lock->close_lock);
-      if (atomic_dec (&local_lock->fd_ref) == 0)
+      dmm_spin_unlock (&local_lock->close_lock);
+      if (dmm_atomic_sub_return (&local_lock->fd_ref, 1) == 0)
         {
           release_fd (fd, local_lock);
         }
@@ -133,12 +136,12 @@ UNLOCK_EPOLL_CTRL (int fd, nstack_fd_local_lock_info_t * local_lock)
 #define INC_FD_REF(fd, fd_inf, local_lock){ \
     if (local_lock)\
     {\
-        atomic_inc(&local_lock->fd_ref);\
+        dmm_atomic_inc(&local_lock->fd_ref);\
         if (local_lock->fd_status != FD_OPEN)\
         {\
             nstack_set_errno(EBADF);\
             NSSOC_LOGERR("nstack call, fd_status=%d [return]", local_lock->fd_status); \
-            if(atomic_dec(&local_lock->fd_ref) == 0){ \
+            if(dmm_atomic_sub_return(&local_lock->fd_ref, 1) == 0){ \
                 release_fd(fd, local_lock);\
             }\
             return -1;\
@@ -158,7 +161,8 @@ UNLOCK_EPOLL_CTRL (int fd, nstack_fd_local_lock_info_t * local_lock)
 static inline void
 UNLOCK_BASE (int fd, nstack_fd_local_lock_info_t * local_lock)
 {
-  if ((NULL != local_lock) && (atomic_dec (&local_lock->fd_ref) == 0))
+  if ((NULL != local_lock)
+      && (dmm_atomic_sub_return (&local_lock->fd_ref, 1) == 0))
     {
       release_fd (fd, local_lock);
     }
@@ -173,7 +177,7 @@ UNLOCK_BASE (int fd, nstack_fd_local_lock_info_t * local_lock)
 #define LOCK_CLOSE(local_lock){\
     if (local_lock)\
     {\
-        common_mem_spinlock_lock(&local_lock->close_lock);\
+        dmm_spin_lock(&local_lock->close_lock);\
     }\
 }
 
@@ -182,7 +186,7 @@ UNLOCK_CLOSE (nstack_fd_local_lock_info_t * local_lock)
 {
   if (local_lock)
     {
-      common_mem_spinlock_unlock (&local_lock->close_lock);
+      dmm_spin_unlock (&local_lock->close_lock);
     }
 }
 

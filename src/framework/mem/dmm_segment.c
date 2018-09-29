@@ -16,17 +16,25 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
+#include "dmm_common.h"
 #include "dmm_rwlock.h"
 #include "dmm_segment.h"
 #include "nstack_log.h"
 
-#define SECTION_SIZE 64         /* cache line size */
+#define BLOCK_SIZE 64           /* cache line size */
+#define BLOCK_MASK (BLOCK_SIZE - 1)
 
 #define FIRST_NAME "FIRST SECTION FOR SEGMENT"
 #define LAST_NAME "LAST SECTION FOR FREE HEAD"
 
 #define MEM_ERR(fmt, ...) \
     NS_LOGPID(LOGFW, "DMM-MEM", NSLOG_ERR, fmt, ##__VA_ARGS__)
+
+typedef struct
+{
+  char _dummy_block_size[BLOCK_SIZE];
+} _dmm_packed __BLOCK;
 
 /*
 init create:
@@ -53,13 +61,15 @@ typedef struct dmm_section
   int prev_rel;
   int used_num;
   int free_num;
-  int __flags;                  /* reserved */
+  int flags;                    /* reserved */
   size_t req_size;              /* in bytes */
   int less_rel;                 /* for free list */
   int more_rel;                 /* for free list */
   char name[DMM_MEM_NAME_SIZE];
-} __attribute__ ((__aligned__ (SECTION_SIZE))) section_t;
-SIZE_OF_TYPE_EQUAL_TO (section_t, SECTION_SIZE);
+} _dmm_cache_aligned section_t;
+
+/* dmm_section struct hold blocks number */
+#define SECTION_HOLD ((sizeof(struct dmm_section) + (BLOCK_SIZE - 1)) / BLOCK_SIZE)
 
 struct dmm_segment
 {
@@ -80,23 +90,22 @@ CALC_NUM (size_t size)
 {
   if (size)
     {
-      const size_t MASK = SECTION_SIZE - 1;
-      return (size + MASK) / SECTION_SIZE + 1;
+      return SECTION_HOLD + (size + BLOCK_MASK) / BLOCK_SIZE;
     }
 
-  return 2;                     /* if size is 0, then alloc 1 block */
+  return SECTION_HOLD + 1;      /* if size is 0, then alloc 1 block */
 }
 
 inline static int
 SEC_REL (const section_t * base, const section_t * sec)
 {
-  return sec - base;
+  return (__BLOCK *) sec - (__BLOCK *) base;
 }
 
 section_t *
 REL_SEC (section_t * base, int rel)
 {
-  return base + rel;
+  return (section_t *) ((__BLOCK *) base + rel);
 }
 
 inline static int
@@ -108,25 +117,25 @@ SEC_INDEX (struct dmm_segment *seg, section_t * sec)
 inline static section_t *
 LESS_SEC (section_t * sec)
 {
-  return sec + sec->less_rel;
+  return REL_SEC (sec, sec->less_rel);
 }
 
 inline static section_t *
 MORE_SEC (section_t * sec)
 {
-  return sec + sec->more_rel;
+  return REL_SEC (sec, sec->more_rel);
 }
 
 inline static section_t *
 PREV_SEC (section_t * sec)
 {
-  return sec + sec->prev_rel;
+  return REL_SEC (sec, sec->prev_rel);
 }
 
 inline static section_t *
 NEXT_SEC (section_t * sec)
 {
-  return sec + (sec->free_num + sec->used_num);
+  return REL_SEC (sec, sec->free_num + sec->used_num);
 }
 
 inline static int
@@ -136,7 +145,7 @@ CHECK_ADDR (struct dmm_segment *seg, void *mem)
     return -1;
   if (mem > (void *) seg->last)
     return -1;
-  if ((long) mem & (SECTION_SIZE - 1))
+  if ((long) mem & BLOCK_MASK)
     return -1;
 
   return 0;
@@ -185,7 +194,7 @@ mem_alloc (struct dmm_segment *seg, size_t size)
     }
   while (num > pos->free_num);
 
-  /* allocate pos pos section tail */
+  /* allocate from pos section's tail */
 
   /* change next section's prev possion */
   next = NEXT_SEC (pos);
@@ -201,13 +210,13 @@ mem_alloc (struct dmm_segment *seg, size_t size)
   sec->more_rel = 0;
   sec->name[0] = 0;
 
-  /* adjust pos */
+  /* adjust pos section */
   pos->free_num -= num;
 
   less = LESS_SEC (pos);
   more = MORE_SEC (pos);
 
-  /* remove pos free list */
+  /* remove from free list */
   less->more_rel = SEC_REL (less, more);
   more->less_rel = SEC_REL (more, less);
   pos->more_rel = 0;
@@ -294,23 +303,35 @@ mem_free (struct dmm_segment *seg, section_t * sec)
 }
 
 void
+dmm_seg_lock (struct dmm_segment *seg)
+{
+  dmm_write_lock (&seg->lock);
+}
+
+void
+dmm_seg_unlock (struct dmm_segment *seg)
+{
+  dmm_write_unlock (&seg->lock);
+}
+
+void
 dmm_seg_dump (struct dmm_segment *seg)
 {
   section_t *sec;
 
   dmm_read_lock (&seg->lock);
 
-  (void) printf ("---- segment:%p  base:%p  size:%lu --------------\n"
-                 " first[%d]:%p  last[%d]:%p  total_num:%d  used_num:%d\n"
-                 " sec_num:%d  used_size:%lu  use%%:%lu%%  free%%:%lu%%\n",
-                 seg, seg->base, seg->size,
-                 SEC_INDEX (seg, seg->first), seg->first,
-                 SEC_INDEX (seg, seg->last), seg->last,
-                 seg->total_num, seg->used_num,
-                 seg->sec_num, seg->used_size,
-                 seg->used_size * 100 / seg->size,
-                 (seg->total_num -
-                  seg->used_num) * SECTION_SIZE * 100 / seg->size);
+  (void)
+    printf
+    ("---- segment:%p  base:%p  size:%lu ---- BS:%u SS:%lu SH:%lu ----\n"
+     " first[%d]:%p  last[%d]:%p  total_num:%d  used_num:%d\n"
+     " sec_num:%d  used_size:%lu  use%%:%lu%%  free%%:%ld%%\n", seg,
+     seg->base, seg->size, BLOCK_SIZE, sizeof (struct dmm_section),
+     SECTION_HOLD, SEC_INDEX (seg, seg->first), seg->first, SEC_INDEX (seg,
+                                                                       seg->last),
+     seg->last, seg->total_num, seg->used_num, seg->sec_num, seg->used_size,
+     seg->used_size * 100 / seg->size,
+     (seg->total_num - seg->used_num) * (BLOCK_SIZE * 100) / seg->size);
 
   (void) printf ("----------------------------------------\n"
                  "%18s %9s %9s %9s %9s %10s %9s %9s %s\n",
@@ -345,16 +366,15 @@ dmm_seg_dump (struct dmm_segment *seg)
 inline static int
 align_section (void *base, size_t size, section_t ** first)
 {
-  const long MASK = ((long) SECTION_SIZE - 1);
   const int SEG_NUM = CALC_NUM (sizeof (struct dmm_segment));
 
   const long align = (long) base;
-  const long addr = (align + MASK) & (~MASK);
-  const size_t total = (size - (addr - align)) / SECTION_SIZE;
+  const long addr = (align + BLOCK_MASK) & (~BLOCK_MASK);
+  const size_t total = (size - (addr - align)) / BLOCK_SIZE;
 
-  if (total > 0x7fffFFFF)
+  if (total > INT_MAX)
     return -1;
-  if (total < SEG_NUM + 1)      /* first+segment + last */
+  if (total < SEG_NUM + SECTION_HOLD)   /* first+segment + last */
     return -1;
 
   *first = (section_t *) addr;
@@ -364,21 +384,21 @@ align_section (void *base, size_t size, section_t ** first)
 struct dmm_segment *
 dmm_seg_create (void *base, size_t size)
 {
-  const int SEG_NUM = CALC_NUM (sizeof (struct dmm_segment));
   section_t *first, *last;
   struct dmm_segment *seg;
-  int total = align_section (base, size, &first);
+  const int total = align_section (base, size, &first);
+  const int SEG_NUM = CALC_NUM (sizeof (struct dmm_segment));
 
   if (total <= 0)
     return NULL;
 
-  last = first + (total - 1);
+  last = first + (total - SECTION_HOLD);
 
   /* first section */
   first->prev_rel = 0;
   first->used_num = SEG_NUM;
   first->req_size = sizeof (struct dmm_segment);
-  first->free_num = total - (SEG_NUM + 1);
+  first->free_num = total - (SEG_NUM + SECTION_HOLD);
   first->less_rel = SEC_REL (first, last);
   first->more_rel = SEC_REL (first, last);
   first->name[0] = 0;
@@ -402,9 +422,9 @@ dmm_seg_create (void *base, size_t size)
   seg->first = first;
   seg->last = last;
   seg->total_num = total;
-  seg->sec_num = 2;
+  seg->sec_num = 2;             /* first and tail */
   seg->used_size = sizeof (struct dmm_segment);
-  seg->used_num = first->used_num;
+  seg->used_num = first->used_num + SECTION_HOLD;
 
   return seg;
 }
@@ -414,12 +434,12 @@ dmm_seg_attach (void *base, size_t size)
 {
   section_t *first, *last;
   struct dmm_segment *seg;
-  int total = align_section (base, size, &first);
+  const int total = align_section (base, size, &first);
 
   if (total <= 0)
     return NULL;
 
-  last = first + (total - 1);
+  last = first + (total - SECTION_HOLD);
   seg = (struct dmm_segment *) (first + 1);
 
   if (seg->base != base)
@@ -451,9 +471,9 @@ dmm_mem_alloc (struct dmm_segment *seg, size_t size)
 {
   section_t *sec;
 
-  dmm_write_lock (&seg->lock);
+  dmm_seg_lock (seg);
   sec = mem_alloc (seg, size);
-  dmm_write_unlock (&seg->lock);
+  dmm_seg_unlock (seg);
 
   return sec ? sec + 1 : NULL;
 }
@@ -467,9 +487,9 @@ dmm_mem_free (struct dmm_segment *seg, void *mem)
       return -1;
     }
 
-  dmm_write_lock (&seg->lock);
+  dmm_seg_lock (seg);
   mem_free (seg, ((section_t *) mem) - 1);
-  dmm_write_unlock (&seg->lock);
+  dmm_seg_unlock (seg);
 
   return 0;
 }
@@ -499,45 +519,36 @@ dmm_mem_map (struct dmm_segment *seg, size_t size,
   if (!name || !name[0] || strlen (name) >= DMM_MEM_NAME_SIZE)
     return NULL;
 
-  dmm_write_lock (&seg->lock);
-
   sec = mem_lookup (seg, name);
   if (sec)
     {
       MEM_ERR ("Map '%s' exist", name);
       mem = NULL;
     }
-  else if (!(sec = mem_alloc (seg, size)))
-    {
-      MEM_ERR ("alloc '%s' failed for size %lu", name, size);
-      mem = NULL;
-    }
-  else
+  else if (NULL != (sec = mem_alloc (seg, size)))
     {
       (void) strncpy (sec->name, name, sizeof (sec->name));
       mem = sec + 1;
     }
-
-  dmm_write_unlock (&seg->lock);
+  else
+    {
+      MEM_ERR ("alloc '%s' failed for size %lu", name, size);
+      mem = NULL;
+    }
 
   return mem;
 }
 
 int
-dmm_mem_unmap (struct dmm_segment *seg, const char name[DMM_MEM_NAME_SIZE])
+dmm_mem_unmap (struct dmm_segment *seg, void *mem)
 {
-  section_t *sec;
+  if (CHECK_ADDR (seg, mem))
+    {
+      MEM_ERR ("Invalid address:%p", mem);
+      return -1;
+    }
 
-  if (!name || !name[0])
-    return -1;
+  mem_free (seg, ((section_t *) mem) - 1);
 
-  dmm_write_lock (&seg->lock);
-
-  sec = mem_lookup (seg, name);
-  if (sec)
-    mem_free (seg, sec);
-
-  dmm_write_unlock (&seg->lock);
-
-  return sec != NULL ? 0 : -1;
+  return 0;
 }

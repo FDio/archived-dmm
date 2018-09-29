@@ -20,9 +20,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "types.h"
-#include "common_mem_pal.h"
-#include "common_mem_buf.h"
-#include "common_pal_bitwide_adjust.h"
 #ifdef __cplusplus
 /* *INDENT-OFF* */
 extern "C" {
@@ -53,7 +50,7 @@ struct ep_rb_root
 static inline void
 ep_rb_set_parent (struct ep_rb_node *rb, struct ep_rb_node *p)
 {
-  rb->rb_parent = (struct ep_rb_node *) ADDR_LTOSH_EXT (p);
+  rb->rb_parent = p;
 }
 
 #define ep_rb_entry(ptr, type, member) container_of(ptr, type, member)
@@ -67,10 +64,10 @@ ep_rb_link_node (struct ep_rb_node *node,
                  struct ep_rb_node *parent, struct ep_rb_node **rb_link)
 {
 
-  node->rb_parent = (struct ep_rb_node *) ADDR_LTOSH_EXT (parent);
+  node->rb_parent = parent;
   node->rb_left = node->rb_right = NULL;
 
-  *rb_link = (struct ep_rb_node *) ADDR_LTOSH_EXT (node);
+  *rb_link = node;
   node->color = EP_RB_RED;
 
 }
