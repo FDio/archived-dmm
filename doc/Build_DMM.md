@@ -95,7 +95,7 @@ Check hugepage info
     sudo mkdir -p /var/run/ip_module
 ```
 
-# 6. Biuld and Run the APP
+# 6. Build and Run the APP
 
 - Link the app with the lib **libnStackAPI.so** first, you can refer to app_example/perf-test
 

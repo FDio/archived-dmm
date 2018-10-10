@@ -90,7 +90,7 @@ get_sys_pid ()
   return g_sys_host_pid;
 }
 
-pid_t updata_sys_pid ();
+pid_t update_sys_pid ();
 u32_t sys_now (void);
 
 #define sys_sem_t sys_sem_t_v2

@@ -2797,7 +2797,7 @@ nstack_fork (void)
       pid = nsfw_base_fork ();
       if (pid == 0)
         {
-          updata_sys_pid ();
+          update_sys_pid ();
         }
       NSSOC_LOGERR ("g_nStackInfo has not initialized]parent_pid=%d, pid=%d",
                     parent_pid, pid);

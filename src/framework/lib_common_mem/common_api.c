@@ -275,7 +275,7 @@ sys_get_hostpid_from_file (pid_t pid)
 }
 
 pid_t
-updata_sys_pid ()
+update_sys_pid ()
 {
   g_sys_host_pid = SYS_HOST_INITIAL_PID;
   return get_sys_pid ();

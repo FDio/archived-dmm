@@ -769,7 +769,7 @@ nstack_fw_init ()
       }
 
       common_mem_rwlock_read_lock (get_fork_lock ());
-      updata_sys_pid ();
+      update_sys_pid ();
       u8 proc_type = NSFW_PROC_APP;
       nsfw_mem_para stinfo = { 0 };
 

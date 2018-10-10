@@ -180,7 +180,7 @@ nstack_fork_init_parent (pid_t ppid)
 void
 nstack_fork_init_child (pid_t ppid)
 {
-  pid_t cpid = updata_sys_pid ();
+  pid_t cpid = update_sys_pid ();
   NSSOC_LOGDBG ("parent_pid=%d, child_pid=%d", ppid, cpid);
 
   nsfw_mgr_clr_fd_lock ();

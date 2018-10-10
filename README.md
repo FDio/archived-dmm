@@ -32,15 +32,15 @@ instances and the app/socket-to-stack-mappings, which are provided via the orche
 different transport layer protocol and also provide the flexibility to choose a protocol stack
 from manybased on functional/performance requirements.
 # 3.  Quick Start
-Refer doc/Build_DMM.md 
+ * [Refer doc/Build_DMM.md.](https://git.fd.io/dmm/plain/doc/Build_DMM.md)
 
 # 4.  Involved
  * [Bi-Weekly DMM Metting.](https://wiki.fd.io/view/DMM/Meettng)
  * [Join the DMM Mailing List.](https://lists.fd.io/g/dmm-dev)
  * [Join fdio-dmm IRC channel.](https://wiki.fd.io/view/IRC)
  * [Browse the code.](https://git.fd.io/dmm/tree/)
- * [18.07 Release Plan](https://wiki.fd.io/view/Projects/dmm/Release_Plans/Release_Plan_18.07)
- 
+ * [18.10 Release Plan](https://wiki.fd.io/view/Projects/dmm/Release_Plans/Release_Plan_18.10)
+
 # 5. More Information
 - https://wiki.fd.io/view/DMM
 - https://wiki.fd.io/view/Project_Proposals/DMM

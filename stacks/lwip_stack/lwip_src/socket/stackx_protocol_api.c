@@ -56,7 +56,7 @@ sbr_init_protocol ()
 int
 sbr_fork_protocol ()
 {
-  pid_t pid = updata_sys_pid ();
+  pid_t pid = update_sys_pid ();
 
   NSSBR_LOGINF ("update pid in child]pid=%d", pid);
   return sbr_fork_stackx ();
