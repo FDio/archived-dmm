@@ -17,11 +17,16 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -g -fPIC -m64 -mssse3 -std=gnu89")
 
 LINK_DIRECTORIES(${LIB_PATH_SHARED} ${LIB_PATH_STATIC})
 
-ADD_EXECUTABLE(tcp_fork_server tcpserver.c)
-ADD_DEPENDENCIES(tcp_fork_server nStackAPI)
-TARGET_LINK_LIBRARIES(tcp_fork_server libnStackAPI.so -lpthread -lrt)
+ADD_EXECUTABLE(vtcp_fork_server tcpserver.c)
+ADD_DEPENDENCIES(vtcp_fork_server nStackAPI)
+TARGET_LINK_LIBRARIES(vtcp_fork_server libnStackAPI.so -lpthread -lrt)
 
-ADD_EXECUTABLE(tcp_client tcpclient.c)
-ADD_DEPENDENCIES(tcp_client nStackAPI)
-TARGET_LINK_LIBRARIES(tcp_client libnStackAPI.so -lpthread -lrt)
+ADD_EXECUTABLE(vtcp_client tcpclient.c)
+ADD_DEPENDENCIES(vtcp_client nStackAPI)
+TARGET_LINK_LIBRARIES(vtcp_client libnStackAPI.so -lpthread -lrt)
 
+ADD_EXECUTABLE(ktcp_fork_server tcpserver.c)
+TARGET_LINK_LIBRARIES(ktcp_fork_server pthread)
+
+ADD_EXECUTABLE(ktcp_client tcpclient.c)
+TARGET_LINK_LIBRARIES(ktcp_client pthread)

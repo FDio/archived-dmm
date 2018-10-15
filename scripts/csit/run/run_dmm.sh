@@ -21,35 +21,22 @@ ROOTDIR=$CSIT_SCRIPT_DIR/../../../
 APP_DIR=${ROOTDIR}/dmm/config/app_test
 LIB_PATH=${ROOTDIR}/dmm/release/lib64
 DMM_SCRIPT_DIR=$ROOTDIR/dmm/scripts
+LOG_PATH=/var/log
 
+source $DMM_SCRIPT_DIR/csit/common.sh
 #################################################
 # Setup preparation
 
 if [ "x$action" == "xsetup" ]; then
-  ip addr
-  lspci -nn
-  lsmod | grep uio
-  bash $CSIT_SCRIPT_DIR/kill_given_proc.sh vs_epoll
-  bash $CSIT_SCRIPT_DIR/setup_hugepage.sh
-
-  cp -f $DMM_SCRIPT_DIR/prep_app_test.sh $DMM_SCRIPT_DIR/prep_app_test_csit.sh
-  sed -i 's!.*check_hugepage.sh!#skip hugepage check!1' $DMM_SCRIPT_DIR/prep_app_test_csit.sh
-  sed -i 's!enp0s8!'$ifname'!1' $DMM_SCRIPT_DIR/prep_app_test_csit.sh
-  bash -x $DMM_SCRIPT_DIR/prep_app_test_csit.sh
+  setup_preparation vs_epoll
 fi
 
 #################################################
 # Execution
 
 if [ "x$action" == "xrun" ]; then
-  cd $APP_DIR
-  ls -l
-  #only for kernal stack
-  if [ "x$node" == "x0" ]; then
-  sudo LD_LIBRARY_PATH=${LIB_PATH} ./vs_epoll -p 20000 -d ${dut2_if_ip} -a 10000 -s ${dut1_if_ip} -l 200 -t 50000 -i 0 -f 1 -r 20000 -n 1 -w 10 -u 10000 -e 10 -x 1
-  else
-  sudo LD_LIBRARY_PATH=${LIB_PATH} ./vc_common -p 20000 -d ${dut1_if_ip} -a 10000 -s ${dut2_if_ip} -l 200 -t 50000 -i 0 -f 1 -r 20000 -n 1 -w 10 -u 10000 -e 10 -x 1
-  fi
+  execution "sudo LD_LIBRARY_PATH=${LIB_PATH} NSTACK_LOG_FILE_FLAG=1 ./vs_epoll -p 20000 -d ${dut2_if_ip} -a 10000 -s ${dut1_if_ip} -l 200 -t 50000 -i 0 -f 1 -r 20000 -n 1 -w 10 -u 10000 -e 10 -x 1" \
+    "sudo LD_LIBRARY_PATH=${LIB_PATH} NSTACK_LOG_FILE_FLAG=1 ./vc_common -p 20000 -d ${dut1_if_ip} -a 10000 -s ${dut2_if_ip} -l 200 -t 50000 -i 0 -f 1 -r 20000 -n 1 -w 10 -u 10000 -e 10 -x 1"
 fi
 
 #################################################
@@ -57,14 +44,9 @@ fi
 
 if [ "x$action" == "xverify" ]; then
   if [ "x$node" == "x1" ]; then
-    sudo cat $RUN_DIR/log_$(basename $0).txt | grep "send 50000"
-    if [ $? == 0 ]; then
-      echo "DMM_CSIT_TEST_PASSED"
-    else
-      echo "DMM_CSIT_TEST_FAILED"
-    fi
+    verification "sudo cat $RUN_DIR/log_$(basename $0).txt | grep \"send 50000\""
   elif [ "x$node" == "x0" ]; then
-    echo "DMM_CSIT_TEST_PASSED"
+    verification
   fi
 fi
 
@@ -72,16 +54,14 @@ fi
 # Print Log
 
 if [ "x$action" == "xlog" ]; then
-  echo "print log"
+  print_log vs_epoll vc_common
 fi
 
 #################################################
 # Cleanup
 
 if [ "x$action" == "xcleanup"  ]; then
-  if [ "x$node" == "x0" ]; then
-    bash $CSIT_SCRIPT_DIR/kill_given_proc.sh vs_epoll
-  fi
+  cleanup vs_epoll vc_common
 fi
 
 exit 0
