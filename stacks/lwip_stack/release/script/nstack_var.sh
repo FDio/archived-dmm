@@ -52,7 +52,7 @@ HUGE_PAGES=2048
 HUGE_DIR=/mnt/nstackhuge
 SLEEP_INTERVAL=100 # tcpip thread sleep time, unit: us
 BIND_CPU=0
-MEM_SIZE=2048
+MEM_SIZE=3072
 RTP_CORE_MASK=2
 
 MASTER_EXEC_PATH="/product/gpaas/nStackMaster/bin"

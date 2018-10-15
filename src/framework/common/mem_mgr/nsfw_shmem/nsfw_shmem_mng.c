@@ -73,18 +73,11 @@ nsfw_shmem_init (nsfw_mem_para * para)
 
   NSCOMM_LOGINF ("nsfw shmem init begin");
 
-  if (NSFW_PROC_MAIN == para->enflag)
-    {
-      iret = common_pal_module_init (NULL, app_mode);
-    }
-  else
-    {
-      LCORE_MASK_SET (rteinfo.ilcoremask, 1);
-      rteinfo.ucproctype = DMM_PROC_T_SECONDARY;
-      iret = common_pal_module_init (&rteinfo, app_mode);
-    }
+  LCORE_MASK_SET (rteinfo.ilcoremask, 1);
+  rteinfo.ucproctype = DMM_PROC_T_SECONDARY;
+  iret = common_pal_module_init (para, &rteinfo, app_mode);
 
-  if (NSFW_MEM_OK != iret)
+  if (DMM_MBUF_RET_OK != iret)
     {
       NSCOMM_LOGERR ("rte init fail] ret=0x%x", iret);
       return NSFW_MEM_ERR;
