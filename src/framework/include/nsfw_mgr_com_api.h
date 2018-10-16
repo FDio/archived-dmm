@@ -186,6 +186,7 @@ extern int nsfw_mgr_run_script (const char *cmd, char *result,
 extern int nsfw_mgr_com_chk_hbt (int v_add);
 extern i32 nsfw_set_close_on_exec (i32 sock);
 extern int nsfw_mgr_comm_fd_init (u32 proc_type);
+extern void nsfw_mgr_com_mkdir_domainpath (char *pathname);
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

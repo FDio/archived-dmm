@@ -48,8 +48,6 @@ FILE(WRITE ${post_compile} "#!/bin/bash\n")
 FILE(APPEND ${post_compile}
 "
 
-find ${CMAKE_CURRENT_LIST_DIR}/release/ -name \"*.sh\" -exec chmod +x {} \\;
-find ${CMAKE_CURRENT_LIST_DIR}/release/ -name \"*.py\" -exec chmod +x {} \\;
 ln -sfn ./run_nstack_main.sh ${CMAKE_CURRENT_LIST_DIR}/release/script/run_nstack.sh
 echo post compile process success.
 "

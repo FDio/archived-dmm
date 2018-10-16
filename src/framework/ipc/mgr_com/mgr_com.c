@@ -1828,7 +1828,6 @@ nsfw_mgr_comm_fd_init (u32 proc_type)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-void nsfw_mgr_com_mkdir_domainpath (char *pathname);
 void
 nsfw_mgr_com_mkdir_domainpath (char *pathname)
 {
