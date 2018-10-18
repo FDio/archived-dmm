@@ -191,6 +191,82 @@ NSTACK_STATIC struct rte_eth_conf port_conf_default_bond = {
 };
 
 /*****************************************************************************
+*   Prototype    : dpdk_mbuf_to_file
+*   Description  : write the packet data into a file
+*   Input        : uint16_t pkt_number
+*                  struct rte_mbuf **pkts
+*   Output       : None
+*   Return Value :
+*   Calls        :
+*   Called By    :
+*
+*****************************************************************************/
+NSTACK_STATIC void
+dpdk_mbuf_to_file (uint16_t pkt_number, struct rte_mbuf **pkts)
+{
+  char line[100] = { 0 };
+  FILE *f = NULL;
+  struct rte_mbuf *p = NULL;
+  uint16_t len = 0, offset, i;
+  uint16_t pktlen = 0;
+  uint16_t start = 0;
+  uint16_t number = 0;
+  unsigned char *data = NULL;
+
+  f = fopen ("/var/log/nStack/packet.txt", "a+");
+  if (f == NULL)
+    {
+      NSHAL_LOGERR ("can not open the file:%s", "packet.txt");
+      return;
+    }
+
+  for (i = 0; i < pkt_number; i++)
+    {
+      pktlen = 0;
+      p = pkts[i];
+      while (p)
+        {
+          len = 0;
+          data = rte_pktmbuf_mtod (p, unsigned char *);
+          while (len < p->data_len)
+            {
+              start = pktlen % 16;      /* start of the line */
+              if (start == 0)
+                {
+                  number = SNPRINTF_S (line, sizeof (line), sizeof (line) - 1,
+                                       "%08X", len);
+                }
+
+              for (offset = 0;
+                   ((offset + start) < 16) && ((len + offset) < p->data_len);
+                   offset++)
+                {
+                  number +=
+                    SNPRINTF_S (line + number, sizeof (line),
+                                sizeof (line) - 1, " %02X",
+                                data[len + offset]);
+                }
+
+              fprintf (f, "%s", line);
+              if ((offset + start) == 16)
+                fprintf (f, "\n");
+
+              len += offset;
+              pktlen += offset;
+              (void) MEMSET_S (line, sizeof (line), 0, sizeof (line));
+            }
+
+          p = p->next;
+
+        }
+      fprintf (f, "\n");
+    }
+
+  fclose (f);
+  return;
+}
+
+/*****************************************************************************
 *   Prototype    : hal_rte_eth_rx_burst
 *   Description  : a copy of rte_eth_rx_burst, because this function invokes
                    a global(rte_eth_devices), which cannt be access by dlsym
@@ -207,13 +283,13 @@ NSTACK_STATIC struct rte_eth_conf port_conf_default_bond = {
 *****************************************************************************/
 NSTACK_STATIC inline uint16_t
 hal_rte_eth_rx_burst (uint8_t port_id, uint16_t queue_id,
-                      struct rte_mbuf **rx_pkts, const uint16_t nb_pkts)
+                      struct rte_mbuf ** rx_pkts, const uint16_t nb_pkts)
 {
 #ifdef RTE_ETHDEV_RXTX_CALLBACKS
   struct rte_eth_rxtx_callback *cb;
 #endif
   int16_t nb_rx;
-
+  char *pst_capture_packet = NULL;
   struct rte_eth_dev *dev = &rte_eth_devices[port_id];
 
   if (NULL == dev->rx_pkt_burst)
@@ -250,6 +326,11 @@ hal_rte_eth_rx_burst (uint8_t port_id, uint16_t queue_id,
     }
 #endif
 
+  //pst_capture_packet = getenv ("NSTACK_CAPTURE_PACKET");
+  if (pst_capture_packet && strcmp (pst_capture_packet, "1") == 0)
+    {
+      dpdk_mbuf_to_file (nb_rx, rx_pkts);
+    }
   return (uint16_t) nb_rx;
 }
 
@@ -274,7 +355,8 @@ hal_rte_eth_tx_burst (uint8_t port_id, uint16_t queue_id,
 #ifdef RTE_ETHDEV_RXTX_CALLBACKS
   struct rte_eth_rxtx_callback *cb;
 #endif
-
+  int16_t nb_tx = 0;
+  char *pst_capture_packet = NULL;
   struct rte_eth_dev *dev = &rte_eth_devices[port_id];
 
   if (NULL == dev->tx_pkt_burst)
@@ -309,8 +391,16 @@ hal_rte_eth_tx_burst (uint8_t port_id, uint16_t queue_id,
     }
 #endif
 
-  return (*dev->tx_pkt_burst) (dev->data->tx_queues[queue_id], tx_pkts,
-                               nb_pkts);
+  nb_tx = (*dev->tx_pkt_burst) (dev->data->tx_queues[queue_id], tx_pkts,
+                                nb_pkts);
+
+  //pst_capture_packet = getenv ("NSTACK_CAPTURE_PACKET");
+  if (pst_capture_packet && strcmp (pst_capture_packet, "1") == 0)
+    {
+      dpdk_mbuf_to_file (nb_tx, tx_pkts);
+    }
+
+  return nb_tx;
 }
 
 /*****************************************************************************
