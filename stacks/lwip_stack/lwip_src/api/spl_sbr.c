@@ -157,7 +157,7 @@ _do_send (data_com_msg * m)
   msg_send_buf *_m = (msg_send_buf *) m->buffer;
   if (cpcb == NULL)
     {
-      NS_LOG_CTRL (LOG_CTRL_SEND, STACKX, "NSPOL", NSLOG_ERR,
+      NS_LOG_CTRL (LOG_CTRL_SEND, STACKX, "NSLWIP", NSLOG_ERR,
                    "failed to find target pcb, drop the message]"
                    "module=%u, major=%u, minor=%u",
                    m->param.module_type,
@@ -192,7 +192,7 @@ _do_write (data_com_msg * m)
   msg_write_buf *_m = (msg_write_buf *) m->buffer;
   if ((tpcb == NULL) || (cpcb == NULL))
     {
-      NS_LOG_CTRL (LOG_CTRL_WRITE, STACKX, "NSPOL", NSLOG_ERR,
+      NS_LOG_CTRL (LOG_CTRL_WRITE, STACKX, "NSLWIP", NSLOG_ERR,
                    "failed to find target pcb, drop the message]"
                    "module=%u, major=%u, minor=%u",
                    m->param.module_type,
@@ -225,7 +225,7 @@ _do_recv (data_com_msg * m)
 
   if ((tpcb == NULL) || (cpcb == NULL))
     {
-      NS_LOG_CTRL (LOG_CTRL_RECV, STACKX, "NSPOL", NSLOG_ERR,
+      NS_LOG_CTRL (LOG_CTRL_RECV, STACKX, "NSLWIP", NSLOG_ERR,
                    "failed to find target pcb, drop the message]"
                    "module=%u, major=%u, minor=%u",
                    m->param.module_type,

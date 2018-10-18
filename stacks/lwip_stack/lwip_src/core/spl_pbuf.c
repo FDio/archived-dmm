@@ -89,7 +89,7 @@ spl_pbuf_alloc_hugepage (spl_pbuf_layer layer, u16_t length,
     {
       /* last_log_prt_time and unprint_log_count indeed have multi-thread issue,
        * but their values don't have precision requirement. No risk. */
-      NS_LOG_CTRL (LOG_CTRL_HUGEPAGE_ALLOC_FAIL, STACKX, "NSPOL", NSLOG_ERR,
+      NS_LOG_CTRL (LOG_CTRL_HUGEPAGE_ALLOC_FAIL, STACKX, "NSLWIP", NSLOG_ERR,
                    "pbuf_alloc_huge: Could not allocate PBUF for SPL_PBUF_HUGE");
 
       return NULL;

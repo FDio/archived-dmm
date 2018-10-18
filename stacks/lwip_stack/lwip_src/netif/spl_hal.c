@@ -379,7 +379,7 @@ spl_hal_port_zone_init ()
   nsfw_mem_zone create_port_zone;
   nsfw_mem_zone create_port_info;
   struct stackx_port_info *mz_port_info;
-  INITPOL_LOGINF ("RTP", "spl_hal_port_zone_init", NULL_STRING,
+  INITPOL_LOGINF ("HAL", "spl_hal_port_zone_init", NULL_STRING,
                   LOG_INVALID_VALUE, MODULE_INIT_START);
 
   if ((CUR_CFG_HAL_PORT_NUM < 1)
@@ -408,7 +408,7 @@ spl_hal_port_zone_init ()
 
   if (NULL == p_stackx_port_zone)
     {
-      INITPOL_LOGERR ("RTP", "spl_hal_port_zone_init",
+      INITPOL_LOGERR ("HAL", "spl_hal_port_zone_init",
                       "Cannot create memory zone for MP_STACKX_PORT_ZONE information",
                       LOG_INVALID_VALUE, MODULE_INIT_FAIL);
       common_exit (EXIT_FAILURE,
@@ -421,7 +421,7 @@ spl_hal_port_zone_init ()
 
   if (EOK != retVal)
     {
-      INITPOL_LOGERR ("RTP", "spl_hal_port_zone_init", "MEMSET_S return fail",
+      INITPOL_LOGERR ("HAL", "spl_hal_port_zone_init", "MEMSET_S return fail",
                       retVal, MODULE_INIT_FAIL);
       nsfw_mem_zone_release (&create_port_zone.stname);
       return -1;
@@ -445,7 +445,7 @@ spl_hal_port_zone_init ()
 
   if (NULL == mz_port_info)
     {
-      INITPOL_LOGERR ("RTP", "spl_hal_port_zone_init",
+      INITPOL_LOGERR ("HAL", "spl_hal_port_zone_init",
                       "Cannot create memory zone for MP_STACKX_PORT_INFO information",
                       LOG_INVALID_VALUE, MODULE_INIT_FAIL);
       common_exit (EXIT_FAILURE,
@@ -458,7 +458,7 @@ spl_hal_port_zone_init ()
 
   if (EOK != retVal)
     {
-      INITPOL_LOGERR ("RTP", "spl_hal_port_zone_init", "MEMSET_S return fail",
+      INITPOL_LOGERR ("HAL", "spl_hal_port_zone_init", "MEMSET_S return fail",
                       retVal, MODULE_INIT_FAIL);
       nsfw_mem_zone_release (&create_port_info.stname);
       nsfw_mem_zone_release (&create_port_zone.stname);
@@ -470,7 +470,7 @@ spl_hal_port_zone_init ()
 
   p_stackx_port_zone->stackx_one_port = mz_port_info;
 
-  INITPOL_LOGINF ("RTP", "spl_hal_port_zone_init", NULL_STRING,
+  INITPOL_LOGINF ("HAL", "spl_hal_port_zone_init", NULL_STRING,
                   LOG_INVALID_VALUE, MODULE_INIT_SUCCESS);
 
   return 0;
@@ -495,7 +495,7 @@ spl_hal_init (int argc, char *argv[])
 
   /* Init DPDK */
   argc = uStackArgIndex--;
-  INITPOL_LOGINF ("RTP", "hal_init_global", NULL_STRING, LOG_INVALID_VALUE,
+  INITPOL_LOGINF ("HAL", "hal_init_global", NULL_STRING, LOG_INVALID_VALUE,
                   MODULE_INIT_START);
 
   for (idx_init = 0; idx_init < argc; idx_init++)
@@ -1326,7 +1326,7 @@ spl_hal_port_setup ()
   unsigned int i;
   struct stackx_port_info *p_port_info = NULL;
 
-  INITPOL_LOGINF ("RTP", "spl_hal_port_setup", NULL_STRING, LOG_INVALID_VALUE,
+  INITPOL_LOGINF ("HAL", "spl_hal_port_setup", NULL_STRING, LOG_INVALID_VALUE,
                   MODULE_INIT_START);
 
   for (i = num_ports_NIC_start; i < num_ports_NIC; i++)
@@ -1337,7 +1337,7 @@ spl_hal_port_setup ()
         {
           NSPOL_LOGERR ("Error initialising]nic_id=%u", i);
 
-          INITPOL_LOGERR ("RTP", "spl_hal_port_setup", NULL_STRING,
+          INITPOL_LOGERR ("HAL", "spl_hal_port_setup", NULL_STRING,
                           LOG_INVALID_VALUE, MODULE_INIT_FAIL);
 
           return -1;
@@ -1353,7 +1353,7 @@ spl_hal_port_setup ()
     {
       NSPOL_LOGERR ("bond port init failed!");
 
-      INITPOL_LOGERR ("RTP", "spl_hal_port_setup", NULL_STRING,
+      INITPOL_LOGERR ("HAL", "spl_hal_port_setup", NULL_STRING,
                       LOG_INVALID_VALUE, MODULE_INIT_FAIL);
 
       return -1;
@@ -1361,7 +1361,7 @@ spl_hal_port_setup ()
 
   spl_hal_capa_init ();
 
-  INITPOL_LOGINF ("RTP", "spl_hal_port_setup", NULL_STRING, LOG_INVALID_VALUE,
+  INITPOL_LOGINF ("HAL", "spl_hal_port_setup", NULL_STRING, LOG_INVALID_VALUE,
                   MODULE_INIT_SUCCESS);
 
   return 0;
