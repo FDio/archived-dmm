@@ -88,7 +88,8 @@
 int log_level = LOG_INFO;
 
 int
-nscomm_pal_module_init (common_mem_pal_module_info * pinfo, u8 app_mode)
+nscomm_pal_module_init (nsfw_mem_para * para,
+                        common_mem_pal_module_info * pinfo, u8 app_mode)
 {
   char tempargv[PATA_NUM_MAX][PATA_STRLENT];
   char *argv[PATA_NUM_MAX];
@@ -99,6 +100,12 @@ nscomm_pal_module_init (common_mem_pal_module_info * pinfo, u8 app_mode)
   int intmask = 0;
   int retVal;
   char name[10] = { '\0' };
+
+  if (para == NULL)
+    {
+      NSCOMM_LOGERR ("para is null");
+      return DMM_MBUF_RET_ERR;
+    }
 
   retVal = MEMSET_S (tempargv, sizeof (tempargv), '\0', sizeof (tempargv));
   if (EOK != retVal)
@@ -112,8 +119,21 @@ nscomm_pal_module_init (common_mem_pal_module_info * pinfo, u8 app_mode)
       NSCOMM_LOGERR ("MEMSET_S failed]ret=%d", retVal);
       return DMM_MBUF_RET_ERR;
     }
-  if (NULL == pinfo)
+  if (NSFW_PROC_MAIN == para->enflag)
     {
+      if (para->iargsnum != 0)
+        {
+          if (common_mem_pal_init (para->iargsnum, para->pargs) < 0)
+            {
+              COMMON_LOG_PRINT (LOG_ERR, "Cannot init pal\r\n");
+              return DMM_MBUF_RET_ERR;
+            }
+          else
+            {
+              return DMM_MBUF_RET_OK;
+            }
+        }
+
       PARA1_SET (argv, tempargv, agindex, "nStackMain");
       PARA2_SET (argv, tempargv, agindex, "-c", "0x1");
       PARA2_SET (argv, tempargv, agindex, "-n", "4");
