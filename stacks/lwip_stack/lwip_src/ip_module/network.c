@@ -510,7 +510,8 @@ add_network_configuration (struct network_configuration
       while (pheader)
         {
           if (!spl_hal_is_nic_exist (pheader->nic_name)
-              && !nic_already_init (pheader->nic_name))
+              && !nic_already_init (pheader->nic_name)
+              && strncmp (tmp->nic_type_name, "vhost", strlen ("vhost")))
             {
               NSOPR_LOGERR ("Invalid configuration %s not exist Error! ",
                             pheader->nic_name);
@@ -584,7 +585,7 @@ parse_network_obj (struct json_object *network_obj)
     NULL, *type_name_obj = NULL;
   struct json_object *ref_nic_list_obj = NULL, *bond_mode_obj =
     NULL, *bond_name_obj = NULL, *ipam_obj = NULL;
-  struct json_object *subnet_obj = NULL;
+  struct json_object *subnet_obj = NULL, *nic_type_obj = NULL;
 
   if (!network_obj)
     {
@@ -685,6 +686,44 @@ parse_network_obj (struct json_object *network_obj)
               NSOPR_LOGERR ("MEMSET_S failed]ret=%d", retVal);
               free_phy_net (pst_phy_net);
               goto RETURN_ERROR;
+            }
+
+          json_object_object_get_ex (phy_obj, "nic_type", &nic_type_obj);       /*lint !e534 no need to check return value */
+          if (nic_type_obj)
+            {
+              const char *nic_type_name =
+                json_object_get_string (nic_type_obj);
+              if (strcmp (nic_type_name, "pci") != 0
+                  && strcmp (nic_type_name, "vhost") != 0)
+                {
+                  NSOPR_LOGERR ("unsupported nic_type]nic_type=%s",
+                                nic_type_name);
+                  goto RETURN_ERROR;
+                }
+
+              retVal =
+                STRCPY_S (pst_network_configuration->nic_type_name,
+                          sizeof (pst_network_configuration->nic_type_name),
+                          nic_type_name);
+              if (EOK != retVal)
+                {
+                  NSOPR_LOGERR ("strcpy_s failed]ret=%d", retVal);
+                  goto RETURN_ERROR;
+                }
+            }
+          else
+            {
+              NSOPR_LOGINF
+                ("nic_type not specified, use default type]defaul nic_type=pci");
+              retVal =
+                STRCPY_S (pst_network_configuration->nic_type_name,
+                          sizeof (pst_network_configuration->nic_type_name),
+                          "pci");
+              if (EOK != retVal)
+                {
+                  NSOPR_LOGERR ("strcpy_s failed]ret=%d", retVal);
+                  goto RETURN_ERROR;
+                }
             }
 
           json_object_object_get_ex (phy_obj, "ref_nic", &ref_nic_list_obj);

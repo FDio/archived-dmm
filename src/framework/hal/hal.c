@@ -312,7 +312,7 @@ hal_get_invalid_hdl ()
  Called By    :
 *****************************************************************************/
 hal_hdl_t
-hal_create (const char *name, hal_netif_config_t * conf)
+hal_create (const char *name, const char *nic_type, hal_netif_config_t * conf)
 {
   int ret = -1;
   uint32_t netif_type;
@@ -336,7 +336,7 @@ hal_create (const char *name, hal_netif_config_t * conf)
   /*open */
   for (netif_type = 0; NULL != netif_ops_table[netif_type]; ++netif_type)
     {
-      ret = netif_ops_table[netif_type]->open (inst, name);
+      ret = netif_ops_table[netif_type]->open (inst, name, nic_type);
 
       if (0 == ret)
         {

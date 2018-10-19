@@ -67,6 +67,11 @@ Run the process:
 	#./start_nstack.sh
 ```
 
+If you want to run it with vhost-user, you can run the start_nstack.sh with parameters as follow.
+```
+	#./start_nstack.sh  --vdev virtio_user,mac=fa:16:3e:5f:b3:08,path=/tmp/unix/sock1.sock,queues=8,queue_size=1024 --no-pci
+```
+
 - Steps 4: Communication test between machine A(as server) with machine B
 		(as client)
 

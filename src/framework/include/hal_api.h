@@ -110,7 +110,8 @@ typedef struct hal_netif_config
 
 int hal_init_global (int argc, char **argv);
 int hal_init_local ();
-hal_hdl_t hal_create (const char *name, hal_netif_config_t * conf);
+hal_hdl_t hal_create (const char *name, const char *nic_type,
+                      hal_netif_config_t * conf);
 hal_hdl_t hal_bond (const char *bond_name, uint8_t slave_num,
                     hal_hdl_t slave_hdl[]);
 

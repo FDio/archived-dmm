@@ -16,16 +16,40 @@ fi
 ##get the log info from the parameter of ./start -l XXX -a XXX ###
 nstack_log_path=""
 hostinfo_path=""
-while getopts "l:i:a:" arg
+ARGS=`getopt -o "l:i:a:" -l "vdev:,file-prefix:,no-pci" -n "start_nstack.sh" -- "$@"`
+eval set -- "${ARGS}"
+while true
 do
-   case $arg in
-   l)
-      nstack_log_path="$OPTARG"
-      ;;
-   i)
-      hostinfo_path="$OPTARG"
-      ;;
-   esac
+    case "$1" in
+        -l)
+            nstack_log_path="$2"
+            shift 2
+            ;;
+        -i)
+            hostinfo_path="$2"
+            shift 2
+            ;;
+        --vdev)
+            VDEV="--vdev=$2"
+            shift 2
+            ;;
+        --file-prefix)
+            FILE_PREFIX="--file-prefix=$2"
+            shift 2
+            ;;
+        --no-pci)
+            NO_PCI="--no-pci"
+            shift 1
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Option illegal, please check input!"
+            exit 1
+            ;;
+    esac
 done
 
 hostinfo_stat=0
@@ -116,8 +140,8 @@ install_config
 ########################################################
 core_mask=1
 START_TYPE="primary"
-log $LINENO "./script/run_nstack_main.sh ${core_mask} $HUGE_DIR $MEM_SIZE $START_TYPE"
-${script_path}/script/run_nstack_main.sh $HUGE_DIR $MEM_SIZE
+log $LINENO "./script/run_nstack_main.sh ${core_mask} $HUGE_DIR $MEM_SIZE $START_TYPE $VDEV $NO_PCI"
+${script_path}/script/run_nstack_main.sh $HUGE_DIR $MEM_SIZE $VDEV $NO_PCI
 
 print_pid=$(ps -ux | grep nStackMain | awk '{print $2}' | awk 'NR == 2')
 echo "nStackMain PID:$print_pid"

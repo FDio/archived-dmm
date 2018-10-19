@@ -42,7 +42,7 @@
 #define GlOBAL_HELP "--help"
 #define GLOBAL_Dpdk_ARG "dpdk"
 #define GLOBAL_STACK_PORT "-port"
-#define NSTACK_MAIN_MAX_PARA 19
+#define NSTACK_MAIN_MAX_PARA 32
 #define NSTACK_MAIN_MIN_PARA 1
 
 #define MAX_MASTER_OPEN_FD 1024

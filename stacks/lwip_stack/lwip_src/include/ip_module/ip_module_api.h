@@ -149,6 +149,7 @@ struct network_configuration
   struct ip_subnet *ip_subnet;
   char network_name[IP_MODULE_MAX_NAME_LEN];
   char type_name[IP_MODULE_MAX_NAME_LEN];
+  char nic_type_name[IP_MODULE_MAX_NAME_LEN];
   network_buffer *buffer;
 };
 
