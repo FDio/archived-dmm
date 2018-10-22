@@ -996,13 +996,13 @@ int
 init_configuration_reader ()
 {
   int error_number = 0;
-  INITPOL_LOGINF ("RTP", "init_configuration_reader", NULL_STRING,
+  INITPOL_LOGINF ("CONFIGURATION", "init_configuration_reader", NULL_STRING,
                   LOG_INVALID_VALUE, MODULE_INIT_START);
   g_config_data = &g_ip_module_buff;
 
   if (init_ip_module_unix_socket_path () < 0)
     {
-      INITPOL_LOGERR ("RTP", "init_configuration_reader",
+      INITPOL_LOGERR ("CONFIGURATION", "init_configuration_reader",
                       "Error when init path", LOG_INVALID_VALUE,
                       MODULE_INIT_FAIL);
       return -1;
@@ -1012,7 +1012,7 @@ init_configuration_reader ()
   if (listen_fd < 0)
     {
       error_number = errno;
-      INITPOL_LOGERR ("RTP", "init_configuration_reader",
+      INITPOL_LOGERR ("CONFIGURATION", "init_configuration_reader",
                       "when listening ip_module_unix_socket", error_number,
                       MODULE_INIT_FAIL);
       return -1;
@@ -1027,7 +1027,7 @@ init_configuration_reader ()
       return -1;
     }
 
-  INITPOL_LOGINF ("RTP", "init_configuration_reader", NULL_STRING,
+  INITPOL_LOGINF ("CONFIGURATION", "init_configuration_reader", NULL_STRING,
                   LOG_INVALID_VALUE, MODULE_INIT_SUCCESS);
   return 0;
 }

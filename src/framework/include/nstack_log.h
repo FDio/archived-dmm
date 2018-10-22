@@ -318,11 +318,11 @@ extern int ctrl_log_switch;
 #define NSMON_LOGWAR(fmt, ...) NS_LOGPID(MASTER,"NSMON",NSLOG_WAR,fmt,##__VA_ARGS__)
 #define NSMON_LOGERR(fmt, ...) NS_LOGPID(MASTER,"NSMON",NSLOG_ERR,fmt,##__VA_ARGS__)
 
-#define NSPOL_LOGINF(debug,fmt, ...)NS_LOG_STACKX(debug,STACKX,"NSPOL",NSLOG_INF,fmt,##__VA_ARGS__)
-#define NSPOL_LOGDBG(debug,fmt, ...) NS_LOG_STACKX(debug,STACKX,"NSPOL",NSLOG_DBG,fmt,##__VA_ARGS__)
-#define NSPOL_LOGWAR(debug,fmt, ...) NS_LOG_STACKX(debug,STACKX,"NSPOL",NSLOG_WAR,fmt,##__VA_ARGS__)
-#define NSPOL_LOGERR(fmt, ...) NS_LOGPID(STACKX,"NSPOL",NSLOG_ERR,fmt,##__VA_ARGS__)
-#define NSPOL_LOGEMG(fmt, ...) NS_LOGPID(STACKX,"NSPOL",NSLOG_EMG,fmt,##__VA_ARGS__)
+#define NSPOL_LOGINF(debug,fmt, ...)NS_LOG_STACKX(debug,STACKX,"NSLWIP",NSLOG_INF,fmt,##__VA_ARGS__)
+#define NSPOL_LOGDBG(debug,fmt, ...) NS_LOG_STACKX(debug,STACKX,"NSLWIP",NSLOG_DBG,fmt,##__VA_ARGS__)
+#define NSPOL_LOGWAR(debug,fmt, ...) NS_LOG_STACKX(debug,STACKX,"NSLWIP",NSLOG_WAR,fmt,##__VA_ARGS__)
+#define NSPOL_LOGERR(fmt, ...) NS_LOGPID(STACKX,"NSLWIP",NSLOG_ERR,fmt,##__VA_ARGS__)
+#define NSPOL_LOGEMG(fmt, ...) NS_LOGPID(STACKX,"NSLWIP",NSLOG_EMG,fmt,##__VA_ARGS__)
 
 #define NSOPR_LOGINF(fmt, ...) NS_LOGPID(OPERATION,"NSOPR",NSLOG_INF,fmt,##__VA_ARGS__)
 #define NSOPR_LOGDBG(fmt, ...) NS_LOGPID(OPERATION,"NSOPR",NSLOG_DBG,fmt,##__VA_ARGS__)
@@ -403,10 +403,10 @@ extern int ctrl_log_switch;
     } \
 
 #define INITPOL_LOGINF(init_module_name, function, err_string, err_value, status) \
-    INIT_LOG_ASSEM(STACKX,"NSPOL",NSLOG_INF,init_module_name , function, err_string, err_value, status)\
+    INIT_LOG_ASSEM(STACKX,"NSLWIP",NSLOG_INF,init_module_name , function, err_string, err_value, status)\
 
 #define INITPOL_LOGERR(init_module_name, function, err_string, err_value, status) \
-    INIT_LOG_ASSEM(STACKX,"NSPOL",NSLOG_ERR,init_module_name , function, err_string, err_value, status)\
+    INIT_LOG_ASSEM(STACKX,"NSLWIP",NSLOG_ERR,init_module_name , function, err_string, err_value, status)\
 
 #define INITTCP_LOGINF(init_module_name , function, err_string, err_value, status) \
     INIT_LOG_ASSEM(LOGTCP,"NSTCP",NSLOG_INF,init_module_name , function, err_string, err_value, status)\
