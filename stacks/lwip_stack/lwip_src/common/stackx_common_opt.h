@@ -102,6 +102,7 @@ extern "C" {
 #define SPL_TCP_KEEPCNT 0x06
 #define SPL_TCP_LINGER2 0x08
 #define SPL_TCP_DEFER_ACCEPT 0x09
+#define SPL_TCP_INFO 0x0B
 
 typedef enum spl_netconn_type
 {

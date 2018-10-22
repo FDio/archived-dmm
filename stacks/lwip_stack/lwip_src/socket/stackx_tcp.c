@@ -498,6 +498,7 @@ sbr_getsockopt_ipproto_tcp (int optname, void *optval, socklen_t optlen)
     case SPL_TCP_KEEPIDLE:
     case SPL_TCP_KEEPINTVL:
     case SPL_TCP_KEEPCNT:
+    case SPL_TCP_INFO:
       break;
     default:
       err = ENOPROTOOPT;

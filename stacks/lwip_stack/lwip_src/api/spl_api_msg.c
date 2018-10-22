@@ -22,6 +22,7 @@
 //#include "sockets.h"
 #include <netinet/in.h>
 #include <errno.h>
+#include <netinet/tcp.h>
 
 #include "stackx_prot_com.h"
 #include "spl_api.h"
@@ -2523,7 +2524,12 @@ do_get_tcpproto_getsockopt_internal (struct common_pcb *cpcb,
       NSPOL_LOGDBG (SOCKETS_DEBUG, "]fd=%d,SPL_TCP_KEEPCNT=%d",
                     cpcb->socket, *(int *) optval);
       break;
-
+    case SPL_TCP_INFO:
+      ((struct tcp_info *) optval)->tcpi_total_retrans = (int) tpcb->nrtx;
+      ((struct tcp_info *) optval)->tcpi_snd_mss = (int) tpcb->mss;
+      ((struct tcp_info *) optval)->tcpi_rtt = (int) tpcb->sa;
+      ((struct tcp_info *) optval)->tcpi_snd_cwnd = (int) tpcb->cwnd;
+      break;
     default:
       NSPOL_LOGDBG (SOCKETS_DEBUG, "unsupported]optname=%d", optname);
       SET_MSG_ERR (m, EOPNOTSUPP);

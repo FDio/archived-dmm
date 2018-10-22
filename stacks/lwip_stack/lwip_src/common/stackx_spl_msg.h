@@ -21,6 +21,7 @@
 #include "stackx_spl_share.h"
 #include "stackx_common_opt.h"
 #include <sys/socket.h>
+#include <netinet/tcp.h>
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -207,6 +208,7 @@ typedef struct
     //struct in_addr inaddr_optval;
     //struct linger _linger;
     struct timeval timeval_optval;
+    struct tcp_info tpinfo;
     //ipmreq ipmreq_optval;  //Multicast support later
   } optval;
 
