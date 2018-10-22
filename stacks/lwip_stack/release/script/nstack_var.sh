@@ -50,8 +50,10 @@ DPDK_NIC_LIST_FILE=$RUNTIME_DIR/.nstack_dpdk_nic_list
 MAX_LOG_FILE_SIZE=52428800
 HUGE_PAGES=2048
 HUGE_DIR=/mnt/nstackhuge
+
 SLEEP_INTERVAL=100 # tcpip thread sleep time, unit: us
-BIND_CPU=0
+BIND_CPU=1
+
 MEM_SIZE=3072
 RTP_CORE_MASK=2
 
