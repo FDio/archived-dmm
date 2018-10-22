@@ -94,6 +94,8 @@ nsfw_proc_start_with_lock (u8 proc_type)
       return -1;
     }
 
+  nsfw_mgr_com_mkdir_domainpath (lock_fpath);
+
   ret = STRCAT_S (lock_fpath, NSFW_FILE_PATH_LEN, module_name);
   if (EOK != ret)
     {
