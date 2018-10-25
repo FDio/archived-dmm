@@ -3316,5 +3316,7 @@ alloc_common_pcb (enum spl_netconn_type type)
 
   common_pcb_init (cpcb);
   cpcb->type = type;
+
+  res_alloc (&cpcb->res_chk);
   return cpcb;
 }

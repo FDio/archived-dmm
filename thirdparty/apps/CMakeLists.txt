@@ -28,18 +28,19 @@ endif()
 
 INCLUDE(ExternalProject)
 ExternalProject_Add(
-		NGINX
-		URL ${NGINX_URL}
-		DOWNLOAD_DIR ${NGINX_DOWNLOAD_DIR}
-		DOWNLOAD_COMMAND ${NGINX_DOWNLOAD_CMD}
-		BUILD_IN_SOURCE 1
-		SOURCE_DIR ${NGINX_SRC}
-		PATCH_COMMAND echo "./configure --with-ld-opt=\"-L${LIB_PATH_SHARED}/ -lnStackAPI -Wl,-rpath=${LIB_PATH_SHARED}\" --sbin-path=${NGINX_RELEASE}/nginx --conf-path=${NGINX_RELEASE}/nginx.conf --pid-path=${NGINX_RELEASE}/nginx.pid " > configure.sh
-		COMMAND sed -i -e "48,49 s/^/#/" ${CMAKE_CURRENT_LIST_DIR}/nginx/nginx-1.12.2/auto/os/linux
-		CONFIGURE_COMMAND sh configure.sh
-		BUILD_COMMAND make
-		INSTALL_COMMAND make install
-		DEPENDS nStackAPI
+        NGINX
+        URL ${NGINX_URL}
+        DOWNLOAD_DIR ${NGINX_DOWNLOAD_DIR}
+        DOWNLOAD_COMMAND ${NGINX_DOWNLOAD_CMD}
+        BUILD_IN_SOURCE 1
+        SOURCE_DIR ${NGINX_SRC}
+        PATCH_COMMAND echo "./configure --with-ld-opt=\"-L${LIB_PATH_SHARED}/ -lnStackAPI -Wl,-rpath=${LIB_PATH_SHARED}\" --sbin-path=${NGINX_RELEASE}/nginx --conf-path=${NGINX_RELEASE}/nginx.conf --pid-path=${NGINX_RELEASE}/nginx.pid " > configure.sh
+        COMMAND sed -i -e "47 s/$/\"/" ${CMAKE_CURRENT_LIST_DIR}/nginx/nginx-1.14.0/auto/os/linux
+        COMMAND sed -i -e "48,49 s/^/#/" ${CMAKE_CURRENT_LIST_DIR}/nginx/nginx-1.12.2/auto/os/linux
+        CONFIGURE_COMMAND sh configure.sh
+        BUILD_COMMAND make
+        INSTALL_COMMAND make install
+        DEPENDS nStackAPI
 )
 
 set_target_properties(NGINX PROPERTIES EXCLUDE_FROM_ALL TRUE)
