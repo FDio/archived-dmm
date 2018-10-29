@@ -399,11 +399,13 @@ main (int argc, char *argv[])
   if (0 != get_network_json_data ())
     {
       NSFW_LOGINF ("get_network_json_data error");
+      return -1;
     }
 
   if (0 != get_ip_json_data ())
     {
       NSFW_LOGINF ("get_ip_json_data error");
+      return -1;
     }
 
   int ep_thread = 0;
