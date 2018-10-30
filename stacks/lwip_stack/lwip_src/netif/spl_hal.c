@@ -962,6 +962,23 @@ spl_hal_port_config (unsigned int *port_num)
           NSPOL_LOGINF (SC_DPDK_INFO, "if_name %s",
                         p_stackx_port_zone->
                         stackx_one_port[port_index].linux_ip.if_name);
+
+          retVal =
+            STRCPY_S (p_stackx_port_zone->
+                      stackx_one_port[port_index].linux_ip.if_type,
+                      sizeof (p_stackx_port_zone->
+                              stackx_one_port[port_index].linux_ip.if_type),
+                      network->nic_type_name);
+          if (EOK != retVal)
+            {
+              NSPOL_LOGERR ("strcpy_s failed]ret=%d.", retVal);
+              return -1;
+            }
+
+          NSPOL_LOGINF (SC_DPDK_INFO, "if_type %s",
+                        p_stackx_port_zone->
+                        stackx_one_port[port_index].linux_ip.if_type);
+
           retVal =
             STRCPY_S (p_stackx_port_zone->
                       stackx_one_port[port_index].linux_ip.ip_addr_linux,
@@ -1286,7 +1303,9 @@ spl_hal_port_start (uint16_t nic_id, struct stackx_port_info *p_port_info,
       conf.tx.ring_size[q] = HAL_TX_RING_SIZE;
     }
 
-  hdl = hal_create (p_port_info->linux_ip.if_name, &conf);
+  hdl =
+    hal_create (p_port_info->linux_ip.if_name, p_port_info->linux_ip.if_type,
+                &conf);
 
   if (!hal_is_valid (hdl))
     {

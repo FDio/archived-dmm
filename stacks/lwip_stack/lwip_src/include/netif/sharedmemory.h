@@ -101,6 +101,7 @@ enum proc_run_type
 struct linux_port_info
 {
   char if_name[HAL_MAX_NIC_NAME_LEN];
+  char if_type[HAL_MAX_NIC_NAME_LEN];
   char ip_addr_linux[18];       //uint32_t ip_addr_linux;
   char mask_linux[18];          //uint32_t mask_linux;
   char bcast_linux[18];         //uint32_t bcast_linux;

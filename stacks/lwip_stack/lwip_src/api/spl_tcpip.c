@@ -61,7 +61,7 @@
 
 #include "sys.h"
 
-#define NSTACK_MAIN_MAX_PARA 19
+#define NSTACK_MAIN_MAX_PARA 32
 #define NSTACK_MAIN_MIN_PARA 1
 
 #define DPDK_DEFAULT_EAL_MEM_SIZE (1024)

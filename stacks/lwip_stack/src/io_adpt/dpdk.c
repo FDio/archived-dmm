@@ -190,6 +190,13 @@ NSTACK_STATIC struct rte_eth_conf port_conf_default_bond = {
              },
 };
 
+NSTACK_STATIC struct rte_eth_conf port_conf_default_vhost = {
+  .rxmode = {
+             .hw_ip_checksum = 0,       /* vhost nic doesn't support hw_ip_checksum and hw_vlan_filter */
+             .hw_vlan_filter = 0,
+             }
+};
+
 /*****************************************************************************
 *   Prototype    : dpdk_mbuf_to_file
 *   Description  : write the packet data into a file
@@ -697,6 +704,39 @@ dpdk_set_port (netif_inst_t * inst, uint8_t port)
 
   return 0;
 
+}
+
+/*****************************************************************************
+ Prototype    : dpdk_set_nic_type
+ Description  : check and save nic type
+ Input        : netif_inst_t* inst
+                const char* type
+ Output       : None
+ Return Value : NSTACK_STATIC
+ Calls        :
+ Called By    :
+
+*****************************************************************************/
+NSTACK_STATIC int
+dpdk_set_nic_type (netif_inst_t * inst, const char *type)
+{
+  int ret;
+
+  ret =
+    STRCPY_S (inst->data.dpdk_if.nic_type,
+              sizeof (inst->data.dpdk_if.nic_type), type);
+  if (EOK != ret)
+    {
+      NSHAL_LOGERR ("strcpy_s set nic_type failed]ret=%d", ret);
+      return -1;
+    }
+
+  /*
+   *      *nic_type is first checked at read_ipmoduleoperateadd_configuration,
+   *           *thus here we dont boring validating it once more and just return.
+   *                */
+
+  return 0;
 }
 
 /*****************************************************************************
@@ -1433,9 +1473,24 @@ dpdk_probe_pci (netif_inst_t * inst)
 
 *****************************************************************************/
 NSTACK_STATIC int
-dpdk_open (netif_inst_t * inst, const char *name)
+dpdk_open (netif_inst_t * inst, const char *name, const char *type)
 {
   int ret;
+
+  if ((inst == NULL) || (name == NULL) || (type == NULL))
+    {
+      NSHAL_LOGERR
+        ("invaliad arguments]inst==NULL, nic_type==NULL or type==NULL");
+      return -1;
+    }
+
+  ret = dpdk_set_nic_type (inst, type);
+
+  if (0 != ret)
+    {
+      NSHAL_LOGERR ("dpdk_set_nic_type fail]nic_type=%s, ret=%d", type, ret);
+      return -1;
+    }
 
   ret = dpdk_set_nic_name (inst, name);
 
@@ -1443,6 +1498,13 @@ dpdk_open (netif_inst_t * inst, const char *name)
     {
       NSHAL_LOGERR ("dpdk_set_nic_name fail]nic_name=%s, ret=%d", name, ret);
       return -1;
+    }
+
+  if (!strncmp (type, "vhost", strlen ("vhost")))
+    {
+      /*for vhost-user device, the remaining steps is unnecessary, y0413485 */
+      NSHAL_LOGERR ("initting vhost device]nic_name=%s type=%s", name, type);
+      return 0;
     }
 
   ret = dpdk_get_driver_name (inst);
@@ -1587,6 +1649,11 @@ dpdk_get_port_conf (netif_inst_t * inst, struct rte_eth_conf **port_conf)
   else if (strncmp ("bond", inst->data.dpdk_if.driver_name, (size_t) 4) == 0)
     {
       *port_conf = &port_conf_default_bond;
+    }
+  else if (strncmp ("vhost", inst->data.dpdk_if.nic_type, (size_t) 5) == 0)
+    {
+      *port_conf = &port_conf_default_vhost;
+      return;
     }
   else
     {

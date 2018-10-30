@@ -332,10 +332,10 @@ run_nStackMain()
     log $LINENO "$env DPDK_TOOL_DIR=$DPDK_TOOL_DIR"
     log $LINENO "$env LD_LIBRARY_PATH=$LD_LIBRARY_PATH"
     log $LINENO "$env DPDK_LIB_PATH=$DPDK_LIB_PATH"
-    log $LINENO "./nStackMain -c $1 -n 4 --huge-dir=$2 --proc-type=primary --file-prefix nStackMain -m $3 stack -c $4 -sleep $5 -bind_cpu $6"
+    log $LINENO "./nStackMain -c $1 -n 4 --huge-dir=$2 --proc-type=primary --file-prefix nStackMain -m $3 $7 $8 stack -c $4 -sleep $5 -bind_cpu $6"
     check_file_size $DPDK_FILE
     cd ..; cd bin/
-    ./nStackMain -c $1 -n 4 --huge-dir=$2 --proc-type=primary --file-prefix nStackMain -m $3 stack -c $4 -sleep $5 -bind_cpu $6 >> $DPDK_FILE &
+    ./nStackMain -c $1 -n 4 --huge-dir=$2 --proc-type=primary --file-prefix nStackMain -m $3 $7 $8 stack -c $4 -sleep $5 -bind_cpu $6 >> $DPDK_FILE &
 }
 
 

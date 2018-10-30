@@ -66,6 +66,7 @@ typedef struct dpdk_if
 
   char pci_addr[HAL_MAX_PCI_ADDR_LEN];
   char nic_name[HAL_MAX_NIC_NAME_LEN];
+  char nic_type[HAL_MAX_NIC_NAME_LEN];
   char driver_name[HAL_MAX_DRIVER_NAME_LEN];
 } dpdk_if_t;
 
@@ -93,7 +94,7 @@ typedef struct netif_ops
   const char *name;
   int (*init_global) (int argc, char **argv);
   int (*init_local) (void);
-  int (*open) (netif_inst_t * inst, const char *name);
+  int (*open) (netif_inst_t * inst, const char *name, const char *type);
   int (*close) (netif_inst_t * inst);
   int (*start) (netif_inst_t * inst);
   int (*stop) (netif_inst_t * inst);
