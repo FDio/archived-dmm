@@ -17,7 +17,7 @@
 
 SET(rdmacm_dir librdmacm-1.1.0)
 SET(dmm_inc_dir ${DMM_REL_INC_DIR})
-SET(RSOCKET_DEBUG 0)
+SET(RSOCKET_DEBUG 1)
 
 ########################
 
