@@ -951,7 +951,7 @@ spl_tcpip_thread (void *arg)
   u16 task_loop;
   u16 num_recv_task = 0, num_send_timer_task = 0;
   u16 index_task = 0;
-  int tcpip_thread_sleep_interval = g_tcpip_thread_sleep_time * 1000;
+  //int tcpip_thread_sleep_interval = g_tcpip_thread_sleep_time * 1000;
   void *task_queue[TASK_BURST];
   data_com_msg *msg;
 
@@ -981,7 +981,7 @@ spl_tcpip_thread (void *arg)
 
           if (run_count++ > 20)
             {
-              sys_sleep_ns (0, tcpip_thread_sleep_interval);
+              //sys_sleep_ns (0, tcpip_thread_sleep_interval);
             }
           continue;
         }
