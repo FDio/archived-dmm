@@ -235,6 +235,7 @@ rsocket_stack_register (nstack_proc_cb * proc_fun,
   proc_fun->extern_ops.module_init = rsocket_init;
   proc_fun->extern_ops.ep_ctl = rsocket_ep_ctl;
   proc_fun->extern_ops.ep_getevt = NULL;
+  proc_fun->extern_ops.module_init_child = rsocket_init;
 
   g_rr_var.type = event_ops->type;
   g_rr_var.event_cb = event_ops->event_cb;
