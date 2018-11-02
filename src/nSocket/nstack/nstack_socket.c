@@ -141,12 +141,10 @@ int
 nstack_socket (int domain, int itype, int protocol)
 {
   int ret = -1;                 //tmp ret of a Single proctol mode.
-  int rdret = -1;               //the final Return judge vale.
   int modInx;
   nstack_socket_ops *ops;
   int ret_fd = -1;
   int protoFD[NSTACK_MAX_MODULE_NUM];
-  nstack_rd_key rdkey = { 0 };
   int selectmod = -1;
 
   /*check whether module init finish or not */
@@ -183,22 +181,6 @@ nstack_socket (int domain, int itype, int protocol)
 
   nstack_fd_local_lock_info_t *lock_info = get_fd_local_lock_info (ret_fd);
   LOCK_FOR_EP (lock_info);
-
-  /*check wether select stack create success, if no return fail */
-  rdkey.type = RD_DATA_TYPE_PROTO;
-  rdkey.proto_type = itype;
-  rdret = nstack_rd_get_stackid (&rdkey, &selectmod);
-  if ((0 != rdret) || (selectmod < 0) || (selectmod >= nstack_get_modNum ()))
-    {
-      NSSOC_LOGERR ("protocol:%d select stack fail", protocol);
-      selectmod = -1;
-    }
-  else
-    {
-      NSSOC_LOGINF ("Create socket of]select modName=%s",
-                    nstack_get_module_name_by_idx (selectmod));
-    }
-
   /*create socket by calling select module or all module */
   nstack_each_modOps (modInx, ops)
   {
@@ -387,6 +369,26 @@ nstack_bind (int fd, const struct sockaddr *addr, socklen_t addrlen)
       NSSOC_LOGINF ("fd addr Select module]fd=%d,addr=%s,module=%s",
                     fd, inet_ntoa (iaddr->sin_addr),
                     nstack_get_module_name_by_idx (selectmod));
+    }
+
+  if (selectmod == -1)
+    {
+      rdkey.type = RD_DATA_TYPE_PROTO;
+      rdkey.proto_type = fdInf->type;
+      retval = nstack_rd_get_stackid (&rdkey, &selectmod);
+      if ((0 != retval) || (selectmod < 0)
+          || (selectmod >= nstack_get_modNum ()))
+        {
+          NSSOC_LOGWAR
+            ("fd Can't select any module for]fd=%d,IP==%s using proto route",
+             fd, inet_ntoa ((iaddr->sin_addr)));
+          selectmod = -1;
+        }
+      else
+        {
+          NSSOC_LOGINF ("Bind socket of]select modName=%s",
+                        nstack_get_module_name_by_idx (selectmod));
+        }
     }
 
   retval = -1;
@@ -902,6 +904,25 @@ nstack_connect (int fd, const struct sockaddr *addr, socklen_t addrlen)
       rdkey.type = RD_DATA_TYPE_IP;
       rdkey.ip_addr = iaddr->sin_addr.s_addr;
       retval = nstack_rd_get_stackid (&rdkey, &selectmod);
+      if ((0 != retval) || (selectmod == -1))
+        {
+          rdkey.type = RD_DATA_TYPE_PROTO;
+          rdkey.proto_type = fdInf->type;
+          retval = nstack_rd_get_stackid (&rdkey, &selectmod);
+          if ((0 != retval) || (selectmod < 0)
+              || (selectmod >= nstack_get_modNum ()))
+            {
+              NSSOC_LOGINF ("fd=%d addr=%s Select module=%s",
+                            fd, inet_ntoa (iaddr->sin_addr),
+                            nstack_get_module_name_by_idx (selectmod));
+              selectmod = -1;
+            }
+          else
+            {
+              NSSOC_LOGINF ("Connect socket of]select modName=%s",
+                            nstack_get_module_name_by_idx (selectmod));
+            }
+        }
       if (ns_success == retval && selectmod >= 0)
         {
           NSSOC_LOGINF ("fd=%d addr=%s Select module=%s",
@@ -1385,6 +1406,25 @@ nstack_sendto (int fd, const void *buf, size_t len, int flags,
   rdkey.type = RD_DATA_TYPE_IP;
   rdkey.ip_addr = iaddr->sin_addr.s_addr;
   retval = nstack_rd_get_stackid (&rdkey, &selectmod);
+  if ((0 != retval) || (selectmod == -1))
+    {
+      rdkey.type = RD_DATA_TYPE_PROTO;
+      rdkey.proto_type = fdInf->type;
+      retval = nstack_rd_get_stackid (&rdkey, &selectmod);
+      if ((0 != retval) || (selectmod < 0)
+          || (selectmod >= nstack_get_modNum ()))
+        {
+          NSSOC_LOGINF ("fd=%d addr=%s Select module=%s",
+                        fd, inet_ntoa (iaddr->sin_addr),
+                        nstack_get_module_name_by_idx (selectmod));
+          selectmod = -1;
+        }
+      else
+        {
+          NSSOC_LOGINF ("sendto socket of]select modName=%s",
+                        nstack_get_module_name_by_idx (selectmod));
+        }
+    }
   if ((ns_success == retval) && (selectmod >= 0))
     {
       NSSOC_LOGINF ("fd=%d,addr=%s,select_module=%s",
@@ -1472,6 +1512,25 @@ nstack_sendmsg (int fd, const struct msghdr * msg, int flags)
       rdkey.type = RD_DATA_TYPE_IP;
       rdkey.ip_addr = iaddr->sin_addr.s_addr;
       retval = nstack_rd_get_stackid (&rdkey, &selectmod);
+      if ((0 != retval) || (selectmod == -1))
+        {
+          rdkey.type = RD_DATA_TYPE_PROTO;
+          rdkey.proto_type = fdInf->type;
+          retval = nstack_rd_get_stackid (&rdkey, &selectmod);
+          if ((0 != retval) || (selectmod < 0)
+              || (selectmod >= nstack_get_modNum ()))
+            {
+              NSSOC_LOGINF ("fd=%d addr=%s Select module=%s",
+                            fd, inet_ntoa (iaddr->sin_addr),
+                            nstack_get_module_name_by_idx (selectmod));
+              selectmod = -1;
+            }
+          else
+            {
+              NSSOC_LOGINF ("Connect socket of]select modName=%s",
+                            nstack_get_module_name_by_idx (selectmod));
+            }
+        }
       if (ns_success == retval)
         {
           NSSOC_LOGINF ("fd=%d,addr=%s,select_module=%s",
