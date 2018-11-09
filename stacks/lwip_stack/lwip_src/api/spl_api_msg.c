@@ -1573,6 +1573,7 @@ spl_do_connected (void *arg, struct tcp_pcb *pcb, err_t err)
   conn->state = SPL_NETCONN_NONE;
   SPL_NETCONN_SET_SAFE_ERR (conn, ERR_OK);
 
+  update_tcp_state (pcb->callback_arg, ESTABLISHED);
   SPL_API_EVENT (conn, SPL_NETCONN_EVT_SENDPLUS, 1);
 
   if (was_blocking && m != NULL)
