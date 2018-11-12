@@ -285,44 +285,8 @@ match_version (char *nstack_ver, char *my_ver)
       return 0;
     }
 
-  char *nstack_ver_head = NULL;
-  char *my_ver_head = NULL;
 
-  char nstack_version[NSTACK_VERSION_LEN] = { 0 };
-  char my_version[NSTACK_VERSION_LEN] = { 0 };
-
-  // !!!STRTOK_S will modify the original string, so use use temp for parameter
-  /* use STRCPY_S instead of MEMCPY_S to avoid invalid memory visit */
-  if (EOK != STRCPY_S (nstack_version, sizeof (nstack_version), nstack_ver))
-    {
-      return 0;
-    }
-
-  nstack_ver_head = get_ver_head (nstack_version);
-  if (NULL == nstack_ver_head)
-    {
-      return 0;
-    }
-
-  /*use STRCPY_S instead of MEMCPY_S to avoid invalid memory visit */
-  if (EOK != STRCPY_S (my_version, sizeof (my_version), my_ver))
-    {
-      return 0;
-    }
-
-  my_ver_head = get_ver_head (my_version);
-  if (NULL == my_ver_head)
-    {
-      return 0;
-    }
-
-  if (strlen (my_ver_head) != strlen (nstack_ver_head))
-    {
-      return 0;
-    }
-
-
-  if (0 != strncmp (nstack_ver_head, my_ver_head, strlen (nstack_ver_head)))
+  if (0 != strncmp (nstack_ver, my_ver, 5))
     {
       return 0;
     }
