@@ -1,5 +1,5 @@
 Package: dmm
-Version: 18.07
+Version: 18.10
 Section: tuils
 Priority: optional
 Depends: libc6, libstdc++6, libgcc1

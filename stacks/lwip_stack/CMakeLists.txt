@@ -65,7 +65,7 @@ execute_process(
 	COMMAND sh ${CMAKE_CURRENT_LIST_DIR}/release/lwip_helper_files/download_lwip.sh
 )
 
-ADD_DEFINITIONS(-D_GNU_SOURCE -DNSTACK_GETVER_VERSION="18.07")
+ADD_DEFINITIONS(-D_GNU_SOURCE -DNSTACK_GETVER_VERSION="18.10")
 
 SET(JSON_C_SRC ${CMAKE_CURRENT_LIST_DIR}/../../thirdparty/json/json-c-0.12.1)
 INCLUDE(ExternalProject)
