@@ -1,0 +1,29 @@
+diff --git a/src/adapt/nstack_dmm_adpt.c b/src/adapt/nstack_dmm_adpt.c
+index d497b80..004975c 100644
+--- a/src/adapt/nstack_dmm_adpt.c
++++ b/src/adapt/nstack_dmm_adpt.c
+@@ -76,7 +76,7 @@ nstack_event_callback (void *pdata, int events)
+       /*event should not notice other process */
+       if ((ep->pid != get_sys_pid ()) && g_same_process)
+         {
+-          continue;
++          //continue;
+         }
+ 
+       sys_arch_lock_with_pid (&ep->lock);
+diff --git a/src/nSocket/nstack/nstack_module.c b/src/nSocket/nstack/nstack_module.c
+index 9566ab8..f692225 100644
+--- a/src/nSocket/nstack/nstack_module.c
++++ b/src/nSocket/nstack/nstack_module.c
+@@ -60,6 +60,11 @@ nstack_get_deploy_type ()
+       if (g_nstack_module_desc[icnt].deploytype > type)
+         {
+           type = g_nstack_module_desc[icnt].deploytype;
++	  if (NSTACK_MODEL_TYPE3 == type) 
++          {
++		break;
++	  }
++
+         }
+     }
+   return type;
