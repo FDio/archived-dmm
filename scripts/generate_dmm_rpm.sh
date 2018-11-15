@@ -17,7 +17,7 @@
 
 cur_directory=${PWD}
 name="dmm"
-version="18.07"
+version="18.10"
 
 mkdir -p ~/rpmbuild/SOURCES
 
