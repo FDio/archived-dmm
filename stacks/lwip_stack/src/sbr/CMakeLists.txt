@@ -21,9 +21,9 @@ endif()
 
 
 FILE(GLOB SBR *.c)
-ADD_LIBRARY(nstack SHARED ${SBR})
-TARGET_LINK_LIBRARIES(nstack -Wl,--whole-archive socket -Wl,--no-whole-archive dmm_api nStackMaintain)
-ADD_DEPENDENCIES(nstack socket DPDK)
+ADD_LIBRARY(lwip_dpdk SHARED ${SBR})
+TARGET_LINK_LIBRARIES(lwip_dpdk -Wl,--whole-archive socket -Wl,--no-whole-archive dmm_api nStackMaintain)
+ADD_DEPENDENCIES(lwip_dpdk socket DPDK)
 INCLUDE_DIRECTORIES(
     ${CMAKE_CURRENT_LIST_DIR}/../include
     ${PAL_H_DIRECTORIES}

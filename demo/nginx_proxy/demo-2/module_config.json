@@ -15,7 +15,7 @@
     {
       "stack_name": "lwip",
       "function_name": "nstack_stack_register",
-      "libname": "libnstack.so",
+      "libname": "liblwip_dpdk.so",
       "loadtype": "dynmic",
       "deploytype": "3",
       "maxfd": "1024",

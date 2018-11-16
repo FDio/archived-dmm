@@ -29,7 +29,7 @@ if [ -f "./nStackTools.tar.gz" ]; then
 fi
 
 mkdir ./nStackServer/lib64
-cp ./release/lib64/libnstack.so ./release/lib64/libnStackAPI.so ./release/lib64/libnstackcmd.so ./release/lib64/libsecurec.so ./nStackServer/lib64
+cp ./release/lib64/liblwip_dpdk.so ./release/lib64/libnStackAPI.so ./release/lib64/libnstackcmd.so ./release/lib64/libsecurec.so ./nStackServer/lib64
 mkdir ./nStackServer/bin
 cp ./release/bin/nStackCtrl ./release/bin/nStackMain ./release/bin/nStackMaster ./release/bin/set_permission.sh ./nStackServer/bin
 mkdir ./nStackServer/conf
@@ -47,7 +47,7 @@ dos2unix ./nStackServer/*.sh
 find ./nStackServer -type f | grep -E "*.sh|*.py" | xargs chmod +x
 
 mkdir ./nStackClient/lib64
-cp ./release/lib64/libnstack.so ./release/lib64/libnStackAPI.so ./release/lib64/libsecurec.so ./nStackClient/lib64
+cp ./release/lib64/liblwip_dpdk.so ./release/lib64/libnStackAPI.so ./release/lib64/libsecurec.so ./nStackClient/lib64
 mkdir ./nStackClient/include
 cp ./release/include/nstack_custom_api.h ./nStackClient/include
 
