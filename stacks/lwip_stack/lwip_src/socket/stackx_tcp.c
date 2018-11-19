@@ -403,16 +403,7 @@ sbr_tcp_connect (sbr_socket_t * sk, const struct sockaddr *name,
   inet_addr_to_ipaddr (&remote_addr, &addr_in->sin_addr);
   u16 remote_port = addr_in->sin_port;
 
-  spl_ip_addr_t local_addr;
-  if (IPADDR_ANY == ss_get_local_ip (sbr_get_conn (sk))->addr)
-    {
-      if (sbr_get_src_ip (remote_addr.addr, &local_addr.addr) != 0)
-        {
-          sbr_set_sk_errno (sk, EHOSTUNREACH);
-          NSSBR_LOGERR ("get src ip failed]fd=%d", sk->fd);
-          return -1;
-        }
-    }
+  spl_ip_addr_t local_addr = { IPADDR_ANY };
 
   if (sbr_handle_connect (sk, &remote_addr, ntohs (remote_port), &local_addr)
       != 0)
