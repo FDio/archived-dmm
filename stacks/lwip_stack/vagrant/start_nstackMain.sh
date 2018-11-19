@@ -68,21 +68,9 @@ chmod 775 *
 cp ./configure/*.json bin/
 cd bin
 
-if [ "$OS_ID" == "centos" ]; then
-    sed -i 's!eth7!'$ifname'!1' ip_data.json
-elif [ "$OS_ID" == "ubuntu" ]; then
-    sed -i 's!eth7!'$ifname'!1' ip_data.json
-fi
-
-sed -i 's!00:54:32:19:3d:19!'$ifmac'!1' ip_data.json
 sed -i 's!192.168.1.207!'$ifaddress1'!1' ip_data.json
 
 sed -i 's!192.168.1.1!'$ifaddresscut'.0!1' network_data_tonStack.json
-sed -i 's!192.168.1.254!'$ifaddresscut'.1!1' network_data_tonStack.json
-sed -i 's!192.168.1.098!'$ifaddresscut'.5!1' network_data_tonStack.json
-sed -i 's!192.168.1.209!'$ifaddresscut'.254!1' network_data_tonStack.json
-sed -i 's!192.168.1.0!'$ifaddresscut'.0!1' network_data_tonStack.json
-sed -i 's!192.168.1.254!'$ifaddresscut'.1!1' network_data_tonStack.json
 
 if [ "$OS_ID" == "centos" ]; then
     sed -i 's!eth7!'$ifname'!1' network_data_tonStack.json

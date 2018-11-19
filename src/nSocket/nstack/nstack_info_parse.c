@@ -66,8 +66,14 @@
      }  \
      else \
      {  \
-        NSSOC_LOGERR("can't get obj from %s index:%d", name, (index));  \
-        goto RETURN_ERROR; \
+        if (strcmp(name, "deploytype") == 0 || strcmp(name, "stackid") == 0)  \
+        { \
+           NSSOC_LOGERR("can't get obj from %s index:%d", name, (index));  \
+        }  \
+        else\
+        { \
+           NSSOC_LOGWAR("can't get obj from %s index:%d", name, (index));  \
+        }  \
      }  \
 } while ( 0 );
 
@@ -161,14 +167,28 @@ nstack_parse_module_cfg_json (char *param)
             }
           else
             {
-              NSSOC_LOGERR ("can't get value from loadtype index:%d", index);
-              goto RETURN_ERROR;
+              if (strcmp (g_nstack_module_desc[icnt].modName, "kernel") == 0)
+                {
+                  g_nstack_module_desc[icnt].libtype = NSTACK_LIB_LOAD_STATIC;
+                }
+              else
+                {
+                  g_nstack_module_desc[icnt].libtype = NSTACK_LIB_LOAD_DYN;
+                }
+              NSSOC_LOGWAR ("can't get the value of loadtype for module:%s",
+                            g_nstack_module_desc[icnt].modName);
             }
+          NSSBR_LOGINF ("load type of %d has been chosen",
+                        g_nstack_module_desc[icnt].libtype);
           NSTACK_JSON_PARSE_INT (module_obj, "deploytype", MODULE_NAME_MAX,
                                  g_nstack_module_desc[icnt].deploytype,
                                  index);
           NSTACK_JSON_PARSE_INT (module_obj, "maxfd", MODULE_NAME_MAX,
                                  g_nstack_module_desc[icnt].maxfdid, index);
+          if (g_nstack_module_desc[icnt].maxfdid == 0)
+            {
+              g_nstack_module_desc[icnt].maxfdid = 1024;
+            }
           NSTACK_JSON_PARSE_INT (module_obj, "minfd", MODULE_NAME_MAX,
                                  g_nstack_module_desc[icnt].minfdid, index);
           NSTACK_JSON_PARSE_INT (module_obj, "priorty", MODULE_NAME_MAX,
