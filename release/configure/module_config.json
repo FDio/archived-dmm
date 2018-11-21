@@ -3,7 +3,6 @@
     "module_list": [
     {
         "stack_name": "kernel",                    /*stack name*/
-        "function_name": "kernel_stack_register",  /*function name*/
         "libname": "./",                           /*library name, if loadtype is static, this maybe
                                                      null, else must give a library name*/
         "loadtype": "static",                      /*library load type: static or dynamic*/
@@ -19,7 +18,6 @@
      *this is not a real stack, just an example for multiple stack configurations*
     {
         "stack_name": "stackx",
-        "function_name": "stackx_register",
         "libname": "libstackx.so",
         "loadtype": "dynmic",
         "deploytype": "3",

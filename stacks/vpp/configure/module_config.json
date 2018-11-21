@@ -3,7 +3,6 @@
     "module_list": [
     {
         "stack_name": "kernel",			   /*stack name*/
-        "function_name": "kernel_stack_register",  /*function name*/
         "libname": "./",			   /*library name, if loadtype is static, this maybe
 						     null, else must give a library name*/
         "loadtype": "static",			   /*library load type: static or dynamic*/
@@ -17,7 +16,6 @@
         },
     {
         "stack_name": "vpp_hoststack",
-        "function_name": "vpphs_stack_register",
         "libname": "../lib64/libdmm_vcl.so",
         "loadtype": "dynmic",
         "deploytype": "4",

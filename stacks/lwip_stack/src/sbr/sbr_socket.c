@@ -1249,7 +1249,7 @@ SBR_INTERCEPT (void, fork_free_fd, (int s, pid_t p, pid_t c))
 *
 *****************************************************************************/
 int
-nstack_stack_register (nstack_proc_cb * ops, nstack_event_cb * val)
+lwip_stack_register (nstack_proc_cb * ops, nstack_event_cb * val)
 {
   if (!ops || !val || !val->handle)
     {

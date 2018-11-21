@@ -143,7 +143,7 @@ dmm_vpphs_init ()
 }
 
 int
-vpphs_stack_register (nstack_proc_cb * ops, nstack_event_cb * val)
+vpp_hoststack_stack_register (nstack_proc_cb * ops, nstack_event_cb * val)
 {
 
 #undef NSTACK_MK_DECL

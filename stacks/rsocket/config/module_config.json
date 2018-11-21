@@ -3,7 +3,6 @@
     "module_list": [
     {
         "stack_name": "kernel",                    /*stack name*/
-        "function_name": "kernel_stack_register",  /*function name*/
         "libname": "./",                           /*library name, if loadtype is static, this maybe
                                                      null, else must give a library name*/
         "loadtype": "static",                      /*library load type: static or dynamic*/
@@ -17,7 +16,6 @@
         },
     {
         "stack_name": "rsocket",
-        "function_name": "rsocket_stack_register",
         "libname": "libdmm_rsocket.so",
         "loadtype": "dynmic",
         "deploytype": "1",

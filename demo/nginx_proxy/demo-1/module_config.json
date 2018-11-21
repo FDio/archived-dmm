@@ -3,7 +3,6 @@
   "module_list": [
     {
       "stack_name": "kernel",
-	  "function_name": "kernel_stack_register",
 	  "libname": "./",
 	  "loadtype": "static",
       "deploytype": "1",
@@ -14,7 +13,6 @@
     },
     {
       "stack_name": "lwip",
-      "function_name": "nstack_stack_register",
       "libname": "liblwip_dpdk.so",
       "loadtype": "dynmic",
       "deploytype": "3",
@@ -25,7 +23,6 @@
     },
     {
         "stack_name": "vpp_hoststack",
-        "function_name": "vpphs_stack_register",
         "libname": "./libdmm_vcl.so",
         "loadtype": "dynmic",
        "deploytype": "4",

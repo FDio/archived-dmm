@@ -38,11 +38,6 @@ extern "C"{
 #define NSTACK_MAX_MODULE_NUM  8
 #define NSTACK_PRO_MODULE      1
 
-#define MIN_SOCK_FOR_STACKX 0
-
-#define MOD_PRI_FOR_STACKX 1
-#define REG_FUN_FOR_STACKX "nstack_stack_register"
-
 #define NSTACK_EP_FREE_NEED_REF   1     /*when epoll information free, need to wait that stack would not notify event */
 #define NSTACK_EP_FREE_NONEED_REF 0
 

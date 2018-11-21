@@ -85,6 +85,7 @@ nstack_parse_module_cfg_json (char *param)
   int ret = NSTACK_RETURN_FAIL;
   int index = 0;
   int icnt = 0;
+  int ret_val;
 
   if (!obj)
     {
@@ -125,10 +126,21 @@ nstack_parse_module_cfg_json (char *param)
           NSTACK_JSON_PARSE_STRING (module_obj, "stack_name", MODULE_NAME_MAX,
                                     &(g_nstack_module_desc[icnt].modName[0]),
                                     index);
-          NSTACK_JSON_PARSE_STRING (module_obj, "function_name",
-                                    MODULE_NAME_MAX,
-                                    &(g_nstack_module_desc
-                                      [icnt].register_fn_name[0]), index);
+          STRCPY_S (&(g_nstack_module_desc[icnt].register_fn_name[0]),
+                    sizeof (&
+                            (g_nstack_module_desc[icnt].register_fn_name[0])),
+                    &(g_nstack_module_desc[icnt].modName[0]));
+          ret_val =
+            STRCAT_S (&(g_nstack_module_desc[icnt].register_fn_name[0]),
+                      sizeof (&
+                              (g_nstack_module_desc[icnt].register_fn_name
+                               [0])), "_stack_register");
+          if (EOK != ret_val)
+            {
+              NSFW_LOGERR ("register_fn_name STRCAT_S failed]ret_val=%d",
+                           ret_val);
+              return -1;
+            }
           NSTACK_JSON_PARSE_STRING (module_obj, "libname", MODULE_NAME_MAX,
                                     &(g_nstack_module_desc[icnt].libPath[0]),
                                     index);
