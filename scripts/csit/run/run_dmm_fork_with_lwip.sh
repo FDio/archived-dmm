@@ -29,15 +29,15 @@ source $DMM_SCRIPT_DIR/csit/common.sh
 # Setup preparation
 
 if [ "x$action" == "xsetup" ]; then
-  setup_preparation_lwip vs_epoll
+  setup_preparation_lwip vtcp_fork_server
 fi
 
 #################################################
 # Execution
 
 if [ "x$action" == "xrun" ]; then
-  execution "sudo LD_LIBRARY_PATH=${LIB_PATH} ./vs_epoll -p 20000 -d ${dut2_if_ip} -a 10000 -s ${dut1_if_ip} -l 200 -t 50000 -i 0 -f 1 -r 20000 -n 1 -w 10 -u 10000 -e 10 -x 1" \
-    "sudo LD_LIBRARY_PATH=${LIB_PATH} ./vc_common -p 20000 -d ${dut1_if_ip} -a 10000 -s ${dut2_if_ip} -l 200 -t 50 -i 0 -f 1 -r 20000 -n 1 -w 10 -u 10000 -e 10 -x 1"
+  execution "sudo LD_LIBRARY_PATH=${LIB_PATH} ./vtcp_fork_server -a 10000 -s ${dut1_if_ip} -t 50000" \
+    "sudo LD_LIBRARY_PATH=${LIB_PATH} ./vtcp_client -p 10000 -d ${dut1_if_ip} -a 10000 -s ${dut2_if_ip} -t 50000"
 fi
 
 #################################################
@@ -45,7 +45,7 @@ fi
 
 if [ "x$action" == "xverify" ]; then
   if [ "x$node" == "x1" ]; then
-    verification "cat $RUN_DIR/log_$(basename $0).txt | grep \"send 50\""
+    verification "cat $RUN_DIR/log_$(basename $0).txt | grep \"Success\""
   elif [ "x$node" == "x0" ]; then
     verification
   fi
@@ -62,7 +62,7 @@ fi
 # Cleanup
 
 if [ "x$action" == "xcleanup"  ]; then
-  cleanup_lwip vs_epoll
+  cleanup_lwip vtcp_fork_server
 fi
 
 exit 0

@@ -31,4 +31,5 @@
 
   1. make a new script in "dmm/scripts/csit/run/" with the help of
      "dmm/scripts/csit/template.sh".
-  2. And handle all the actions in it(can go through existing scripts for reference).
+  2. The functions in dmm/scripts/csit/run/common.sh can be reused in the new script. 
+  3. And handle all the actions in it(can go through existing scripts for reference).

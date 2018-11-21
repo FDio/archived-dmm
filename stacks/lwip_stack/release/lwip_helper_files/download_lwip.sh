@@ -23,7 +23,7 @@ echo $LWIP_DOWNLOAD_DIR
 if [ ! -d "${LWIP_DOWNLOAD_DIR}/lwip/" ]; then
 	mkdir -p ${LWIP_DOWNLOAD_DIR}/lwip/
         cd ${LWIP_DOWNLOAD_DIR}/
-	wget -N --no-check-certificate http://download.savannah.nongnu.org/releases/lwip/lwip-2.0.3.zip
+	wget -N --no-check-certificate http://download-mirror.savannah.nongnu.org/releases/lwip/lwip-2.0.3.zip
 	unzip ${LWIP_DOWNLOAD_DIR}/lwip-2.0.3.zip "lwip-2.0.3/src/*" -d ${LWIP_DOWNLOAD_DIR}/lwip
 	mv ${LWIP_DOWNLOAD_DIR}/lwip/lwip-2.0.3/src/* ${LWIP_DOWNLOAD_DIR}/lwip/
 	rm -rf ${LWIP_DOWNLOAD_DIR}/lwip/lwip-2.0.3/
