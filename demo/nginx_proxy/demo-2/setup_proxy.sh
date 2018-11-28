@@ -32,14 +32,14 @@ cp /DMM/demo/nginx_proxy/demo-2/vpp_config /etc/vpp/
 cd /DMM/stacks/vpp/vpp/build-root/install-vpp_debug-native/vpp/bin
 #run vpp
 sudo ifconfig enp0s9 down
-./vpp -c /etc/vpp/startup.conf 
+./vpp -c /etc/vpp/startup.conf
 
 #cp nginx libs
 cd /DMM/thirdparty/apps/nginx/release
 
 # Move the conf file.
 cp /DMM/demo/nginx_proxy/demo-2/module_config.json /DMM/thirdparty/apps/nginx/release/
-cp /DMM/stacks/lwip_stack/app_conf/nStackConfig.json /DMM/thirdparty/apps/nginx/release/
+cp /DMM/stacks/lwip_stack/configure/nStackConfig.json /DMM/thirdparty/apps/nginx/release/
 cp /DMM/demo/nginx_proxy/demo-2/proxy_nginx.conf /DMM/thirdparty/apps/nginx/release/
 cp /DMM/demo/nginx_proxy/demo-2/rd_config.json /DMM/thirdparty/apps/nginx/release/
 mv /DMM/thirdparty/apps/nginx/release/proxy_nginx.conf /DMM/thirdparty/apps/nginx/release/nginx.conf
