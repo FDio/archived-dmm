@@ -52,7 +52,7 @@ Hello from upstream rproxy-server1 172.167.50.30:80. Connect from  -  via 172.16
 ```
 $ vagrant ssh rproxy-client
 vagrant@rproxy-client:~$ cd /CLIENT/
-vagrant@rproxy-client:/CLIENT$ curl http://192.168.50.20
+vagrant@rproxy-client:/CLIENT$ ./udpclient
 Hello message sent.
 Server : Hello from server
 ```
