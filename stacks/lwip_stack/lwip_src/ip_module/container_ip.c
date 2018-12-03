@@ -533,7 +533,7 @@ parse_container_ip_json (char *param)
   else
     {
       /* this mandatory parameter */
-      goto RETURN_ERROR;
+      NSOPR_LOGWAR ("json_object_object_get_ex containerID failed");
     }
 
   json_object_object_get_ex (obj, "ports_list", &ports_list_obj);
