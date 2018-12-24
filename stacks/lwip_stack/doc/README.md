@@ -32,11 +32,11 @@ a birds eye view of lwip in DMM pipeline mode.
 ```sh
 	#export LD_LIBRARY_PATH=${dmm}/stacks/lwip_stack/release/lib64/
 	#export LD_PRELOAD=${dmm}/release/lib64/libnStackAPI.so
-	#export NSTACK_MOD_CFG_FILE=${dmm}/stacks/lwip_stack/app_conf/module_config.json
-	#export NSTACK_MOD_CFG_RD=${dmm}/stacks/lwip_stack/app_conf/rd_config.json
+	#export NSTACK_MOD_CFG_FILE=${dmm}/stacks/lwip_stack/configure/module_config.json
+	#export NSTACK_MOD_CFG_RD=${dmm}/stacks/lwip_stack/configure/rd_config.json
 	#export NSTACK_LOG_ON=DBG  (optional enable debug)
 ```
-- Steps 2: Modify rd_config.json(located at dmm/stacks/lwip_stack/app_config/)
+- Steps 2: Modify rd_config.json(located at dmm/stacks/lwip_stack/configure/)
 ```sh
 	#vim rd_config.json
 	  Eg. set "subnet": "192.168.21.1/24"

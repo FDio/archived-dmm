@@ -82,7 +82,7 @@ sed -i 's!eth7!'$ifname'!1' network_data_tonStack.json
 cd $DMM_BUILD_SCRIPT_DIR/../release/bin
 cp -r . ../../stacks/lwip_stack/app_test
 cd $DMM_BUILD_SCRIPT_DIR/../stacks/lwip_stack/app_test
-cp -r ../app_conf/*.json .
+cp -r ../configure/*.json .
 
 sed -i 's!192.168.1.1!'$ifaddresscut'.0!1' rd_config.json
 
