@@ -13,7 +13,12 @@ Procedures and details of how to run this demo is inside each demo directory.
 This demo use NGINX as a reverse proxy server. The server uses lwip as client facing stack and kernel tcp/ip
 stack as upstream server facing stack.
 
-##demo-2 
+##demo-2
 
-This demo NGINX as a reverse proxy server. The server uses lwip as client facing stack and kernel tcp/ip stack 
+This demo NGINX as a reverse proxy server. The server uses lwip as client facing stack and kernel tcp/ip stack
 as upstream server facing stack for UDP, vpp-hoststack for another updtream server facing stack for TCP.
+
+##demo-3
+
+This demo NGINX as a reverse proxy server. The server uses kernel tcp/ip as client facing stack and rsocket
+stack as upstream server facing stack.
