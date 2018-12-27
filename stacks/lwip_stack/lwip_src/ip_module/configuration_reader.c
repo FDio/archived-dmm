@@ -361,7 +361,14 @@ get_network_json_data ()
   tmp_config_path = realpath ("./network_data_tonStack.json", NULL);
   if (!tmp_config_path)
     {
-      exit (1);
+      NSTCP_LOGINF ("Warning! It use the second search path ../configure");
+      tmp_config_path =
+        realpath ("../configure/network_data_tonStack.json", NULL);
+    }
+
+  if (!tmp_config_path)
+    {
+      return 1;
     }
 
   int fp = open (tmp_config_path, O_RDONLY);
@@ -454,7 +461,13 @@ get_ip_json_data ()
   tmp_config_path = realpath ("./ip_data.json", NULL);
   if (!tmp_config_path)
     {
-      exit (1);
+      NSTCP_LOGINF ("Warning! It use the second search path ../configure");
+      tmp_config_path = realpath ("../configure/ip_data.json", NULL);
+    }
+
+  if (!tmp_config_path)
+    {
+      return 1;
     }
 
   int fp = open (tmp_config_path, O_RDONLY);
