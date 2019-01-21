@@ -66,12 +66,12 @@ nstack_rd_ip_item_insert (nstack_rd_list * hlist, void *rditem)
   nstack_rd_node *tempdata = NULL;
   struct hlist_node *tempnode = NULL;
   struct hlist_node *tem = NULL;
-  unsigned int ip_addr = 0;
-  unsigned int ip_masklen = 0;
-  unsigned int ip_maskv = MASK_V (ip_addr, ip_masklen);
   unsigned int tempip_addr = 0;
   unsigned int tempip_masklen = 0;
   rd_data_item *pitem = (rd_data_item *) rditem;
+  unsigned int ip_addr = pitem->ipdata.addr;
+  unsigned int ip_masklen = pitem->ipdata.masklen;
+  unsigned int ip_maskv = MASK_V (ip_addr, ip_masklen);
 
   ip_masklen = pitem->ipdata.masklen;
   NSSOC_LOGDBG ("stackid:%d, ipaddr:%u.%u.%u.%u masklen:0x%x was inserted",

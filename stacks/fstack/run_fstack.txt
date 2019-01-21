@@ -1,0 +1,47 @@
+F-Stack RTC
+===========
+Currently a multi-socket application can only use F-Stack RTC and Kernel stacks together.
+[cannot use F-stack and rSocket together]
+
+
+Build F-Stack:
+-------------
+cd /DMM/scripts/
+sudo ./build.sh
+
+sudo apt-get install libnuma-dev
+sudo apt-get install libssl-dev
+
+cd /DMM/build/
+sudo make dmm_fstack
+
+
+Run F-Stack:
+------------
+sudo echo 1024 | sudo tee /sys/kernel/mm/hugepages/hugepages-2048kB/nr_hugepages
+sudo mkdir /mnt/huge
+sudo mount -t hugetlbfs nodev /mnt/huge
+sudo echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
+sudo modprobe uio
+sudo insmod /DMM/stacks/fstack/f-stack-1.12/dpdk/x86_64-native-linuxapp-gcc/kmod/igb_uio.ko
+sudo insmod /DMM/stacks/fstack/f-stack-1.12/dpdk/x86_64-native-linuxapp-gcc/kmod/rte_kni.ko
+sudo python /DMM/stacks/fstack/f-stack-1.12/dpdk/usertools/dpdk-devbind.py --status
+sudo ifconfig enp0s8 down
+sudo python /DMM/stacks/fstack/f-stack-1.12/dpdk/usertools/dpdk-devbind.py --bind=igb_uio enp0s8
+
+go to app:
+----------
+cd /DMM/stacks/fstack/app
+sudo make
+
+cp -r /DMM/stacks/fstack/config/* /DMM/stacks/fstack/app
+edit config.ini and rd_config.json according to the requrired server/client ip
+
+#server command:
+---------------
+sudo FF_PATH=/DMM/stacks/fstack/f-stack-1.12/ FF_DPDK=/DMM/stacks/fstack/f-stack-1.12/dpdk/x86_64-native-linuxapp-gcc LD_LIBRARY_PATH=/DMM/release/lib64/ LD_PRELOAD=/DMM/release/lib64/libnStackAPI.so ./fstack_single_sock_server -f 172.28.128.13
+
+#client command:
+----------------
+curl http://172.28.128.13
+[172.28.128.13 - server ip]

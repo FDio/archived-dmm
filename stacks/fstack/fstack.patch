@@ -1,0 +1,12 @@
+diff --git a/lib/ff_syscall_wrapper.c b/lib/ff_syscall_wrapper.c
+index cfc407c..7b61aa6 100644
+--- a/lib/ff_syscall_wrapper.c
++++ b/lib/ff_syscall_wrapper.c
+@@ -710,6 +710,7 @@ ff_fcntl(int fd, int cmd, ...)
+     argp = va_arg(ap, uintptr_t);
+     va_end(ap);
+
++    curthread->td_retval[0] = 0;
+     if ((rc = kern_fcntl(curthread, fd, cmd, argp)))
+         goto kern_fail;
+     rc = curthread->td_retval[0];

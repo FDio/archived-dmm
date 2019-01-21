@@ -61,6 +61,8 @@ if [ "${BUILD_ALL}" == "YES" ]; then
     bash -x $DMM_DIR/stacks/lwip_stack/vagrant/build.sh "from-base-build" || exit 1
     #============build rsocket============================
     bash -x $DMM_DIR/scripts/build_rsocket.sh || exit 1
+    #============build F-Stack============================
+    bash -x $DMM_DIR/scripts/build_fstack.sh || exit 1
     #=======other new stacks build can be called from here
     echo "SUCCESSFULLY built all the stacks"
 fi

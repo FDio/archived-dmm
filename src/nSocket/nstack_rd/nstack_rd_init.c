@@ -42,6 +42,7 @@ rd_stack_plane_map g_nstack_plane_info[] = {
    {"rsocket", "nstack-rsocket", -1},
    {{RD_STACKX_NAME}, {RD_STACKX_PLANENAME}, -1},
    {"vpp_hoststack", "nstack-vpp", -1},
+   {"fstack", "nstack-fstack", -1}
 };
 /* *INDENT-ON* */
 

@@ -29,6 +29,11 @@
 [**7 How to use the incidental apps to test the protocol stack**](#7-how-to-use-the-incidental-apps-to-test-the-protocol-stack)<br>
 [**7.1 App introduction**](#7.1-app-introduction)<br>
 [**7.2 Test implementation**](#7.2-Test-implementation)<br>
+[**8. DMM-RTC mode**](#8.-dmm-rtc-mode)<br>
+[**8.1 RTC Stack Init and Run**](#8.1-rtc-stack-init-and-run)<br>
+[**8.2 RTC epoll**](#8.2-rtc-epoll)<br>
+[**8.3 RTC Limitations**](#8.3-rtc-limitations)<br>
+[**8.3.1 F-Stack RTC Limitations**](#8.3.1-f-stack-rtc-limitations)<br>
 
 **1. Introduction**<br>
 ============================
@@ -1116,4 +1121,131 @@ The following table is an introduction to some parameters in the code.
   -x                        |            flag print
 
 
+**8. DMM-RTC mode**<br>
+============================
+DMM-RTC mode is one of the basic model types of DMM, where nSocket and stack belong to the same process.
+In this mode we need to handle the stack initialization at the time of DMM framework initialization.
+Spceial care need to be taken for epoll_wait.
+Need to mention the depoly type as 1 in module_config.json which tells DMM that nSocket and stack belong to the same process
+
+**8.1 RTC Stack Init and Run**<br>
+-------------------------
+RTC stack init need to be handled at the time of framework initialization.
+Showing F-Stack stack registration function where dmm_fstack_init handles the F-Stack initialization
+~~~C
+
+int
+fstack_stack_register (nstack_proc_cb * proc_fun, nstack_event_cb * event_ops)
+{
+#define NSTACK_MK_DECL(ret, fn, args) proc_fun->socket_ops.pf##fn = (void*)ff_##fn;
+#include "declare_syscalls.h"
+#undef NSTACK_MK_DECL
+  g_dmm_fstack.p_epoll_ctl = dlsym (event_ops->handle, "ff_epoll_ctl");
+  g_dmm_fstack.p_epoll_create = dlsym (event_ops->handle, "ff_epoll_create");
+  g_dmm_fstack.p_epoll_wait = dlsym (event_ops->handle, "ff_epoll_wait");
+  g_dmm_fstack.p_close = dlsym (event_ops->handle, "ff_close");
+  g_dmm_fstack.regVal = *event_ops;
+
+  proc_fun->socket_ops.pfselect = NULL;
+
+  proc_fun->extern_ops.module_init = dmm_fstack_init;
+  proc_fun->extern_ops.ep_ctl = fstack_ep_ctl_ops;
+  proc_fun->extern_ops.ep_getevt = NULL;
+  proc_fun->extern_ops.run = fr_run;
+  proc_fun->extern_ops.ep_prewait = dmm_fstack_epoll;
+  return 0;
+}
+
+~~~
+
+If a stack need to launch a function on all cores it need to call nstack_run with a loop function implemented by the user as its argument
+Consider the below F-Stack application which explains the usage of nstack_run
+~~~C
+
+int
+main (int argc, char *argv[])
+{
+
+  int opt = 1;
+  int addrlen = sizeof (address);
+
+  if ((server_fd = socket (AF_INET, SOCK_STREAM, 0)) == 0)
+    {
+      printf ("socket failed\n");
+      exit (EXIT_FAILURE);
+    }
+  if (bind (server_fd, (struct sockaddr *) &address, sizeof (address)) < 0)
+    {
+      printf ("bind failed");
+      exit (EXIT_FAILURE);
+    }
+  printf ("bind success\n");
+  if (listen (server_fd, 3) < 0)
+    {
+      printf ("listen");
+      exit (EXIT_FAILURE);
+    }
+  printf ("listen success\n");
+  nstack_run ((void *) loop);
+  return 0;
+}
+
+~~~
+~~~C
+int
+loop (void *arg)
+{
+  int new_socket, valread;
+  int addrlen = sizeof (address);
+  char buffer[1024] = { 0 };
+  char hello[1024] = { 0 };
+  sprintf (hello, "Hello from server\t PROC_ID : %d", getpid ());
+  printf ("before accept\n");
+  if ((new_socket = accept (server_fd, (struct sockaddr *) &address,
+                            (socklen_t *) & addrlen)) < 0)
+    {
+      printf ("accept failed");
+      return -1;
+    }
+
+  printf ("accept success\n");
+  valread = read (new_socket, buffer, 1024);
+  printf ("%s\n", buffer);
+  send (new_socket, hello, strlen (hello), 0);
+  printf ("Hello message sent\n");
+  return 0;
+}
+
+~~~
+
+**8.2 RTC epoll**
+-------------------------
+RTC stack module init creates an epoll fd by calling stack's epoll_create function and make the epoll_fd global.
+Whenever application calls epoll_ctl, stack's epoll_ctl will be called with the global epoll_fd.
+An RTC Stack application must call nstack_epoll_prewait before calling epoll_wait.
+nstack_epoll_prewait updates ep_item if any event occurs.
+epoll_wait checks ep_item whether any event has occured and updates the same to the application.
+
+Below figure depicts the DMM F-Stack-RTC  epoll architecture.
+
+
+![F-Stack-RTC epoll](../resources/F-Stack-RTC-epoll.png)
+-------------------------
+Figure: F-Stack-RTC-epoll
+
+During the F-Stack module init a global epoll fd will be created by calling ff_epoll_create.
+epoll_create allocates fd and nsep_epollInfo_t.
+epoll_ctl calls ff_epoll_ctl with the global epoll fd created during the module init.
+Non-blocking nstack_epoll_prewait will be called in a loop from application before epoll_wait to check any events have occured on global epoll fd, 
+in case of any events nstack_event_callback function will be called which updates the epitem.
+epoll_wait checks epitem whether some event has occured or not and returns updtae to the application.
+
+**8.3 RTC Limitations**
+-------------------------
+**8.3.1 F-Stack RTC Limitations**
+-------------------------------------------
+No need to call ff_init as regular F-Stack applications call.
+Need to call nstack_run insted of ff_run.
+Must call nstack_epoll_prewait before calling epoll_wait.
+In case of multi-stack and multi-socket application with F-Stack as one of the stacks, should not give timeout value for epoll_wait.
 

@@ -1,0 +1,28 @@
+{
+  "default_stack_name": "kernel",
+  "module_list": [
+    {
+      "stack_name": "kernel",
+	  "libname": "./",
+      "function_name": "kernel_stack_register",
+      "loadtype": "static",
+      "deploytype": "1",
+      "maxfd": "1024",                           /*the max fd supported*/
+      "minfd": "0",                              /*the min fd supported*/
+      "priorty": "1",                            /*priorty when executing, reserv*/
+
+      "stackid": "0"
+    },
+    {
+      "stack_name": "fstack",
+      "libname": "libdmm_fstack.so",
+      "function_name": "fstack_stack_register",
+      "loadtype": "dynmic",
+      "deploytype": "1",
+      "maxfd": "1024",                           /*the max fd supported*/
+      "minfd": "0",                              /*the min fd supported*/
+      "priorty": "1",                            /*priorty when executing, reserv*/
+      "stackid": "1"
+    }
+  ]
+}

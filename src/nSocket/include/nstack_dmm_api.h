@@ -68,6 +68,8 @@ typedef struct __nstack_extern_ops
   int (*stack_fd_check) (int s, int flag);      /*check whether fd belong to stack, if belong, return 1, else return 0 */
   int (*stack_alloc_fd) ();     /*alloc a fd id for epoll */
   int (*peak) (int s);          /*used for stack-x , isource maybe no need */
+  int (*run) (void *fun);       /*used for stack-x , isource maybe no need */
+  void (*ep_prewait) ();        /*used for stack-x , isource maybe no need */
 } nstack_extern_ops;
 
 /*

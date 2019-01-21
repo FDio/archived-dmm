@@ -214,4 +214,5 @@ ADD_SUBDIRECTORY(src)
 ADD_SUBDIRECTORY(app_example)
 
 ADD_SUBDIRECTORY(stacks/rsocket)
+ADD_SUBDIRECTORY(stacks/fstack)
 ADD_SUBDIRECTORY(thirdparty/apps)
