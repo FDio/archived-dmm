@@ -77,3 +77,4 @@ ExternalProject_Add(
 )
 
 set_target_properties(NETPERF PROPERTIES EXCLUDE_FROM_ALL TRUE)
+ADD_SUBDIRECTORY(testapp)
