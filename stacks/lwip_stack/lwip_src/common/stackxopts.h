@@ -48,6 +48,6 @@ extern struct memory_statics memory_used_size[80];
 #define SPL_TCP_HLEN	              20
 #define SPL_TCP_MAX_OPTION_LEN        40
 #define SPL_FRAME_MTU                 1500
-#define SPL_TCP_SEND_MAX_SEG_PER_MSG  5
+#define SPL_TCP_SEND_MAX_SEG_PER_MSG  25
 
 #endif

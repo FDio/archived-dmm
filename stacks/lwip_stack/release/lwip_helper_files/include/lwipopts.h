@@ -35,5 +35,13 @@
 #define LWIP_TCP_KEEPALIVE              1
 #define LWIP_TIMEVAL_PRIVATE            0
 #define LWIP_COMPAT_MUTEX               1
-
+#ifdef TCP_MSS
+#undef TCP_MSS
+#endif
+#define TCP_MSS                     1460
+#define TCP_WND                     (20 * TCP_MSS)
+#define TCP_SND_BUF                 (10 * TCP_MSS)
+#define TCP_SND_QUEUELEN            ((20 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
+#define LWIP_WND_SCALE              1
+#define TCP_RCV_SCALE               7
 #endif

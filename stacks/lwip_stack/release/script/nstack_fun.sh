@@ -326,7 +326,12 @@ run_nStackMain()
     local script_path=$(cd "$(dirname "$0")"; pwd)
     export NSTACK_CONFIG_PATH=${script_path}/../configure
     export LD_LIBRARY_PATH=${script_path}/lib64/:$LD_LIBRARY_PATH
-    export NSTACK_LOG_ON=INF
+    if [ "$NSTACK_LOG_ON" = "PERF" ]
+    then
+        export NSTACK_LOG_ON=PERF
+    else
+        export NSTACK_LOG_ON=INF
+    fi
 
     log $LINENO "$env NSTACK_CONFIG_PATH=$NSTACK_CONFIG_PATH"
     log $LINENO "$env DPDK_TOOL_DIR=$DPDK_TOOL_DIR"
