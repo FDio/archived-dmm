@@ -584,6 +584,7 @@ sbr_setsockopt_ipproto_tcp (int optname, socklen_t optlen)
 
   switch (optname)
     {
+    case SPL_TCP_NODELAY:
     case SPL_TCP_KEEPIDLE:
     case SPL_TCP_KEEPINTVL:
     case SPL_TCP_KEEPCNT:
