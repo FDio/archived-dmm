@@ -601,7 +601,7 @@ void *
 nstack_select_thread (void *arg)
 {
 
-#define  SELECT_SLEEP_TIME  800 //us
+#define  SELECT_SLEEP_TIME  100 //us
 
   i32 inx;
   nstack_fd_set *readfd;

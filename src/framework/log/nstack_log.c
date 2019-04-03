@@ -305,6 +305,10 @@ int nstack_log_init()
     {
       log_level = NSLOG_EMG;
     }
+      else if (strcmp (pst_temp, "PERF") == 0)
+    {
+	  ctrl_log_switch = 1;
+    }
       else
     {
       log_level = NSLOG_ERR;
@@ -656,6 +660,10 @@ nstack_log_init_app ()
       else if (strcmp (pc_temp, "EMG") == 0)
         {
           log_level = NSLOG_EMG;
+        }
+      else if (strcmp (pc_temp, "PERF") == 0)
+        {
+          ctrl_log_switch = 1;
         }
       else
         {

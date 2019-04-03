@@ -90,7 +90,12 @@ sudo mkdir -p /var/run/ip_module/
 sudo mkdir -p /var/log/nStack/ip_module/
 
 export LD_LIBRARY_PATH=$LIB_PATH
-export NSTACK_LOG_ON=DBG
+if [ "$NSTACK_LOG_ON" = "PERF" ]
+then
+    export NSTACK_LOG_ON=PERF
+else
+    export NSTACK_LOG_ON=DBG
+fi
 
 cd $LWIP_BUILD_DIR/../release
 bash -x ./stop_nstack.sh

@@ -647,7 +647,7 @@ spl_sent_tcp (void *arg, struct tcp_pcb * pcb, u16_t len)
   /* conn is already checked for NULL above with ASSERT */
   /* If the queued byte- or pbuf-count drops below the configured low-water limit,
      let select mark this pcb as writable again. */
-  if (conn->snd_buf > TCP_SNDLOWAT)
+  if (pcb->snd_buf > TCP_SNDLOWAT)
     {
       conn->flags &= ~SPL_NETCONN_FLAG_CHECK_WRITESPACE;
       if (((struct common_pcb *) conn->comm_pcb_data)->model == SOCKET_STACKX)
