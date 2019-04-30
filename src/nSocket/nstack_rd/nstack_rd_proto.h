@@ -16,20 +16,23 @@
 
 #ifndef __NSTACK_RD_PROTO_H
 #define __NSTACK_RD_PROTO_H
-/* *INDENT-OFF* */
+
+#include "nstack_rd_priv.h"
+
 #define NSTACK_RD_PROTO_ITEM_COPY(destitem, srcitem){  \
         (destitem)->agetime = (srcitem)->agetime;  \
         (destitem)->stack_id = (srcitem)->stack_id;  \
         (destitem)->type = (srcitem)->type;   \
-        (destitem)->proto_type = (srcitem)->proto_type; \
+        (destitem)->proto_data.value = (srcitem)->proto_data.value;  \
+        (destitem)->proto_data.attr = (srcitem)->proto_data.attr;   \
 }
-/* *INDENT-ON* */
-int nstack_rd_proto_cpy (void *destdata, void *srcdata);
-int nstack_rd_proto_item_insert (nstack_rd_list * hlist, void *rditem);
-int nstack_rd_proto_item_find (nstack_rd_list * hlist, void *rdkey,
-                               void *outitem);
-int nstack_rd_proto_item_age (nstack_rd_list * hlist);
-int nstack_rd_proto_spec (void *rdkey);
-int nstack_rd_proto_default (void *rdkey);
 
-#endif /*  */
+int nstack_rd_proto_data_cpy(void *destdata, void *srcdata);
+int nstack_rd_proto_item_insert(nstack_rd_list * hlist, void *rditem);
+int nstack_rd_proto_item_find(nstack_rd_list * hlist, void *rdkey,
+                              void *outitem);
+int nstack_rd_proto_item_age(nstack_rd_list * hlist);
+void nstack_rd_proto_item_clean(nstack_rd_list * hlist);
+int nstack_rd_proto_spec(void *rdkey);
+
+#endif

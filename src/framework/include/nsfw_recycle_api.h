@@ -17,6 +17,8 @@
 #ifndef _NSFW_RECYCLE_API_H
 #define _NSFW_RECYCLE_API_H
 
+#include "types.h"
+
 #ifdef __cplusplus
 /* *INDENT-OFF* */
 extern "C"{
@@ -27,40 +29,40 @@ extern "C"{
 
 typedef enum _nsfw_recycle_item_type
 {
-  NSFW_REC_TYPE_NULL = 0,
-  NSFW_REC_SBR_START = 1,
-  NSFW_REC_SBR_SOCKET,
-  NSFW_REC_SBR_END = NSFW_REC_SBR_START + 63,
-  NSFW_REC_NSOCKET_START,
-  NSFW_REC_NSOCKET_EPOLL,
-  NSFW_REC_NSOCKET_END = NSFW_REC_NSOCKET_START + 63,
-  NSFW_REC_TYPE_MAX = 512
+    NSFW_REC_TYPE_NULL = 0,
+    NSFW_REC_SBR_START = 1,
+    NSFW_REC_SBR_SOCKET,
+    NSFW_REC_SBR_END = NSFW_REC_SBR_START + 63,
+    NSFW_REC_NSOCKET_START,
+    NSFW_REC_NSOCKET_EPOLL,
+    NSFW_REC_NSOCKET_END = NSFW_REC_NSOCKET_START + 63,
+    NSFW_REC_TYPE_MAX = 512
 } nsfw_recycle_item_type;
 
 typedef enum _nsfw_recycle_priority
 {
-  NSFW_REC_PRO_HIGHTEST = 0,
-  NSFW_REC_PRO_NORMAL = 1,
-  NSFW_REC_PRO_DEFAULT = 2,
-  NSFW_REC_PRO_LOWEST = 3,
-  NSFW_REC_PRO_MAX = 4
+    NSFW_REC_PRO_HIGHTEST = 0,
+    NSFW_REC_PRO_NORMAL = 1,
+    NSFW_REC_PRO_DEFALUT = 2,
+    NSFW_REC_PRO_LOWEST = 3,
+    NSFW_REC_PRO_MAX = 4
 } nsfw_recycle_priority;
 
 typedef enum _nsfw_rcc_stat
 {
-  NSFW_RCC_CONTINUE = 0,
-  NSFW_RCC_SUSPEND = 1,
-  NSFW_RCC_FAILED = 2,
+    NSFW_RCC_CONTINUE = 0,
+    NSFW_RCC_SUSPEND = 1,
+    NSFW_RCC_FAILED = 2,
 } nsfw_rcc_stat;
 
-/*work on nStackMain*/
-typedef nsfw_rcc_stat (*nsfw_recycle_fun) (u32 exit_pid, void *pdata,
-                                           u16 rec_type);
-extern u8 nsfw_recycle_reg_fun (u16 obj_type, nsfw_recycle_fun fun);
-extern u8 nsfw_recycle_obj_end (u32 pid);
-extern u8 nsfw_recycle_lock_rel_fun (nsfw_recycle_fun fun, void *data,
-                                     u8 proc_type);
-extern int nsfw_recycle_exit_pid_lock (u32 pid, u8 proc_type, void *argv);
+/*work on daemon-stack*/
+typedef nsfw_rcc_stat(*nsfw_recycle_fun) (u32 exit_pid, void *pdata,
+                                          u16 rec_type);
+extern u8 nsfw_recycle_reg_fun(u16 obj_type, nsfw_recycle_fun fun);
+extern u8 nsfw_recycle_obj_end(u32 pid);
+extern u8 nsfw_recycle_lock_rel_fun(nsfw_recycle_fun fun, void *data,
+                                    u8 proc_type);
+extern int nsfw_recycle_exit_pid_lock(u32 pid, u8 proc_type, void *argv);
 
 #define REGIST_RECYCLE_OBJ_FUN(_obj_type, _fun) \
     NSTACK_STATIC void regist_ ## _obj_type ## _fun (void)            \
@@ -79,9 +81,9 @@ extern int nsfw_recycle_exit_pid_lock (u32 pid, u8 proc_type, void *argv);
     }
 
 /*work on nStackApp*/
-extern void *nsfw_recycle_reg_obj (u8 priority, u16 rec_type, void *data);
-extern u8 nsfw_recycle_fork_init ();
-extern int nsfw_recycle_rechk_lock ();
+extern void *nsfw_recycle_reg_obj(u8 priority, u16 rec_type, void *data);
+extern u8 nsfw_recycle_fork_init();
+extern int nsfw_recycle_rechk_lock();
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

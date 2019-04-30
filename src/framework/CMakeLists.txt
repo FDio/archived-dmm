@@ -14,50 +14,34 @@
 # limitations under the License.
 #########################################################################
 
-if(WITH_HAL_LIB)
-else()
-    SET(PAL_H_DIRECTORIES "/usr/include/dpdk/")
-    FILE(GLOB_RECURSE LIBCOMM lib_common_mem/*.c)
-endif()
-
 FILE(GLOB_RECURSE COMMON common/*.c)
 FILE(GLOB INIT init/*.c)
 FILE(GLOB_RECURSE IPC ipc/*.c)
 FILE(GLOB LOG log/*.c)
 FILE(GLOB SNAPSHOT snapshot/*.c)
-FILE(GLOB STARTUP startup/*.c)
 FILE(GLOB MAINTAIN maintain/*.c)
+FILE(GLOB EVENT event/epoll/*.c)
 FILE(GLOB HAL hal/*.c)
-FILE(GLOB DMM_ADPT ../adapt/*.c)
-FILE(GLOB MEM mem/*.c)
-
-ADD_LIBRARY(dmm_api SHARED
-  ${COMMON} ${INIT} ${IPC} ${LOG} ${SNAPSHOT}
-  ${STARTUP} ${MAINTAIN} ${TRACEING} ${HAL}
-  ${DMM_ADPT} ${LIBCOMM} ${MEM})
-
-if(WITH_SECUREC_LIB)
-ADD_DEPENDENCIES(dmm_api SECUREC JSON GLOG)
-else()
-ADD_DEPENDENCIES(dmm_api JSON GLOG)
-endif()
+FILE(GLOB RD  rd/*.c)
+FILE(GLOB RES res/*.c)
+FILE(GLOB_RECURSE MEM mem/*.c)
+FILE(GLOB RING ring/*.c)
+FILE(GLOB DFX dfx/*.c)
 INCLUDE_DIRECTORIES(
-	dmm_api
-	PRIVATE
-	${JSON_C_SRC}
-	${GLOG_SRC}
-	${SECUREC_SRC_H}
-	ipc/mgr_com/
-	hal/
-	include/
-	common/base/include/generic
-	common/base/include/
-	${PAL_H_DIRECTORIES}
-	common/base/liblinuxapi/
-	common/mem_mgr/include
-	common/mem_mgr/nsfw_shmem/
-	common/mem_mgr/nsfw_nshmem/
-	${CMAKE_CURRENT_LIST_DIR}/../nSocket/nstack/event/
-	${CMAKE_CURRENT_LIST_DIR}/../nSocket/nstack/event/epoll
-	${CMAKE_CURRENT_LIST_DIR}/../nSocket/include
+    nStackFw
+    PRIVATE
+    ${JSON_C_SRC}
+    ${GLOG_SRC}
+	${CMAKE_SOURCE_DIR}/src/include
+    ${CMAKE_SOURCE_DIR}/src/nSocket/nstack
+    ${CMAKE_SOURCE_DIR}/src/nSocket/include
+    ${CMAKE_CURRENT_LIST_DIR}/ipc/mgr_com
+    ${CMAKE_CURRENT_LIST_DIR}/include/common/
+    ${CMAKE_CURRENT_LIST_DIR}/include/common/generic
+    ${CMAKE_CURRENT_LIST_DIR}/common/base/liblinuxapi
+	${CMAKE_CURRENT_LIST_DIR}/dfx
+    ${CMAKE_CURRENT_LIST_DIR}/mem/basic_mem
+	${CMAKE_SOURCE_DIR}/src/framework/event/epoll
 )
+ADD_LIBRARY(nStackFw STATIC ${COMMON} ${INIT} ${IPC} ${LOG} ${SNAPSHOT} ${MAINTAIN} ${TRACEING} ${EVENT} ${RES} ${RD} ${HAL} ${MEM} ${RING} ${DFX})
+ADD_DEPENDENCIES(nStackFw JSON GLOG DPDK)

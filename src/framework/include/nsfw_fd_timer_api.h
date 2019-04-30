@@ -19,6 +19,7 @@
 
 #include "list.h"
 #include <time.h>
+#include "dmm_spinlock.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -30,30 +31,32 @@ extern "C"{
 
 typedef struct _nsfw_timer_init_cfg
 {
-  u32 timer_info_size;
-  void *timer_info_pool;
-  struct list_head timer_head;
-  struct list_head exp_timer_head;
+    u32 timer_info_size;
+    void *timer_info_pool;
+    struct list_head timer_head;
+    struct list_head exp_timer_head;
+    dmm_spinlock_t timer_lock;  /* it can start timer after only finish all timer reg, or else it have multi-thread issue */
+    struct itimerspec ts;
 } nsfw_timer_init_cfg;
 
 typedef int (*nsfw_timer_proc_fun) (u32 timer_type, void *argv);
 typedef struct _nsfw_timer_info
 {
-  struct list_head node;
-  nsfw_timer_proc_fun fun;
-  void *argv;
-  struct timespec time_left;
-  u32 timer_type;
-  u8 alloc_flag;
+    struct list_head node;
+    nsfw_timer_proc_fun fun;
+    void *argv;
+    struct timespec time_left;
+    u32 timer_type;
+    u8 alloc_flag;
 } nsfw_timer_info;
 
-extern nsfw_timer_info *nsfw_timer_reg_timer (u32 timer_type, void *data,
-                                              nsfw_timer_proc_fun fun,
-                                              struct timespec time_left);
-extern void nsfw_timer_rmv_timer (nsfw_timer_info * tm_info);
+extern nsfw_timer_info *nsfw_timer_reg_timer(u32 timer_type, void *data,
+                                             nsfw_timer_proc_fun fun,
+                                             struct timespec time_left);
+extern void nsfw_timer_rmv_timer(nsfw_timer_info * tm_info);
 
 extern u8 g_hbt_switch;
-extern int nsfw_timer_module_init (void *param);
+extern int nsfw_timer_module_init(void *param);
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

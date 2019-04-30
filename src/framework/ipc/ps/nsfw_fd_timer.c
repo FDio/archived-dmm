@@ -22,10 +22,8 @@
 #include "types.h"
 #include "list.h"
 
-#include "common_mem_common.h"
-
 #include "nstack_securec.h"
-#include "nsfw_init.h"
+#include "nsfw_init_api.h"
 #include "nsfw_mgr_com_api.h"
 #include "nsfw_mem_api.h"
 #include "nstack_log.h"
@@ -42,11 +40,10 @@ extern "C"{
 #define NSFW_TIMER_CYCLE 1
 #define NSFW_TIMER_INFO_MAX_COUNT_DEF 8191
 #define NSFW_TIMER_INFO_MAX_COUNT (g_timer_cfg.timer_info_size)
-/* *INDENT-OFF* */
+
 nsfw_timer_init_cfg g_timer_cfg;
 
 u8 g_hbt_switch = FALSE;
-/* *INDENT-ON* */
 
 /*****************************************************************************
 *   Prototype    : nsfw_timer_reg_timer
@@ -59,38 +56,39 @@ u8 g_hbt_switch = FALSE;
 *   Return Value : nsfw_timer_info*
 *   Calls        :
 *   Called By    :
-*
 *****************************************************************************/
-nsfw_timer_info *
-nsfw_timer_reg_timer (u32 timer_type, void *data,
-                      nsfw_timer_proc_fun fun, struct timespec time_left)
+nsfw_timer_info *nsfw_timer_reg_timer(u32 timer_type, void *data,
+                                      nsfw_timer_proc_fun fun,
+                                      struct timespec time_left)
 {
-  nsfw_timer_info *tm_info = NULL;
-  if (0 ==
-      nsfw_mem_ring_dequeue (g_timer_cfg.timer_info_pool, (void *) &tm_info))
+    nsfw_timer_info *tm_info = NULL;
+    if (0 ==
+        nsfw_mem_ring_dequeue(g_timer_cfg.timer_info_pool, (void *) &tm_info))
     {
-      NSFW_LOGERR ("dequeue error]data=%p,fun=%p", data, fun);
-      return NULL;
+        NSFW_LOGERR("dequeue error]data=%p,fun=%p", data, fun);
+        return NULL;
     }
 
-  if (EOK != MEMSET_S (tm_info, sizeof (*tm_info), 0, sizeof (*tm_info)))
+    if (EOK != memset_s(tm_info, sizeof(*tm_info), 0, sizeof(*tm_info)))
     {
-      if (0 == nsfw_mem_ring_enqueue (g_timer_cfg.timer_info_pool, tm_info))
+        if (0 == nsfw_mem_ring_enqueue(g_timer_cfg.timer_info_pool, tm_info))
         {
-          NSFW_LOGERR ("enqueue error]data=%p,fun=%p", data, fun);
+            NSFW_LOGERR("enqueue error]data=%p,fun=%p", data, fun);
         }
-      NSFW_LOGERR ("mem set error]data=%p,fun=%p", data, fun);
-      return NULL;
+        NSFW_LOGERR("mem set error]data=%p,fun=%p", data, fun);
+        return NULL;
     }
 
-  tm_info->fun = fun;
-  tm_info->argv = data;
-  tm_info->time_left = time_left;
-  //tm_info->time_left.tv_sec += NSFW_TIMER_CYCLE;
-  tm_info->timer_type = timer_type;
-  list_add_tail (&tm_info->node, &g_timer_cfg.timer_head);
-  tm_info->alloc_flag = TRUE;
-  return tm_info;
+    tm_info->fun = fun;
+    tm_info->argv = data;
+    tm_info->time_left = time_left;
+    tm_info->timer_type = timer_type;
+    tm_info->alloc_flag = TRUE;
+    /* it can start timer after only finish all timer reg, or else it have multi-thread issue */
+    dmm_spin_lock(&g_timer_cfg.timer_lock);
+    list_add_tail(&tm_info->node, &g_timer_cfg.timer_head);
+    dmm_spin_unlock(&g_timer_cfg.timer_lock);
+    return tm_info;
 }
 
 /*****************************************************************************
@@ -101,32 +99,34 @@ nsfw_timer_reg_timer (u32 timer_type, void *data,
 *   Return Value : void
 *   Calls        :
 *   Called By    :
-*
 *****************************************************************************/
-void
-nsfw_timer_rmv_timer (nsfw_timer_info * tm_info)
+void nsfw_timer_rmv_timer(nsfw_timer_info * tm_info)
 {
-  if (NULL == tm_info)
+    if (NULL == tm_info)
     {
-      NSFW_LOGWAR ("tm_info nul");
-      return;
+        NSFW_LOGWAR("tm_info nul");
+        return;
+    }
+    /* it can start timer after only finish all timer reg, or else it have multi-thread issue */
+    dmm_spin_lock(&g_timer_cfg.timer_lock);
+
+    if (FALSE == tm_info->alloc_flag)
+    {
+        dmm_spin_unlock(&g_timer_cfg.timer_lock);
+        NSFW_LOGERR("tm_info refree]tm_info=%p,argv=%p,fun=%p", tm_info,
+                    tm_info->argv, tm_info->fun);
+        return;
     }
 
-  if (FALSE == tm_info->alloc_flag)
+    tm_info->alloc_flag = FALSE;
+    list_del(&tm_info->node);
+    if (0 == nsfw_mem_ring_enqueue(g_timer_cfg.timer_info_pool, tm_info))
     {
-      NSFW_LOGERR ("tm_info refree]tm_info=%p,argv=%p,fun=%p", tm_info,
-                   tm_info->argv, tm_info->fun);
-      return;
+        NSFW_LOGERR("tm_info free failed]tm_info=%p,argv=%p,fun=%p", tm_info,
+                    tm_info->argv, tm_info->fun);
     }
-
-  tm_info->alloc_flag = FALSE;
-  list_del (&tm_info->node);
-  if (0 == nsfw_mem_ring_enqueue (g_timer_cfg.timer_info_pool, tm_info))
-    {
-      NSFW_LOGERR ("tm_info free failed]tm_info=%p,argv=%p,fun=%p", tm_info,
-                   tm_info->argv, tm_info->fun);
-    }
-  return;
+    dmm_spin_unlock(&g_timer_cfg.timer_lock);
+    return;
 }
 
 /*****************************************************************************
@@ -137,41 +137,59 @@ nsfw_timer_rmv_timer (nsfw_timer_info * tm_info)
 *   Return Value : u8
 *   Calls        :
 *   Called By    :
-*
 *****************************************************************************/
-void
-nsfw_timer_exp (u64 count)
+void nsfw_timer_exp(u64 count)
 {
-  nsfw_timer_info *tm_info = NULL;
-  struct list_head *tNode;
-  struct list_head *tPretNode;
+    nsfw_timer_info *tm_info = NULL;
+    struct list_head *tNode;
+    struct list_head *tPretNode;
 
-  LINT_LIST ()list_for_each_entry (tm_info, tNode, (&g_timer_cfg.timer_head),
-                                   node)
-  {
-    tPretNode = tm_info->node.prev;
-    if (tm_info->time_left.tv_sec > (long) count * NSFW_TIMER_CYCLE)
-      {
-        tm_info->time_left.tv_sec -= count * NSFW_TIMER_CYCLE;
-        continue;
-      }
+    /* it can start timer after only finish all timer reg, or else it have multi-thread issue */
+    dmm_spin_lock(&g_timer_cfg.timer_lock);
 
-    list_del (&tm_info->node);
-    list_add_tail (&tm_info->node, &g_timer_cfg.exp_timer_head);
-    tNode = tPretNode;
-  }
-
-  u32 i = 0;
-  while (!list_empty (&g_timer_cfg.exp_timer_head)
-         && i++ < NSFW_TIMER_INFO_MAX_COUNT)
+    list_for_each_entry(tm_info, tNode, (&g_timer_cfg.timer_head), node)
     {
-      tm_info =
-        (nsfw_timer_info *) list_get_first (&g_timer_cfg.exp_timer_head);
-      if (NULL != tm_info->fun)
+
+        tPretNode = tm_info->node.prev;
+        if (tm_info->time_left.tv_sec > (long) count * NSFW_TIMER_CYCLE)
         {
-          (void) tm_info->fun (tm_info->timer_type, tm_info->argv);
+            tm_info->time_left.tv_sec -= count * NSFW_TIMER_CYCLE;
+            continue;
         }
-      nsfw_timer_rmv_timer (tm_info);
+
+        list_del(&tm_info->node);
+        list_add_tail(&tm_info->node, &g_timer_cfg.exp_timer_head);
+        tNode = tPretNode;
+    }
+    dmm_spin_unlock(&g_timer_cfg.timer_lock);
+
+    u32 i = 0;
+    while (!list_empty(&g_timer_cfg.exp_timer_head)
+           && i++ < NSFW_TIMER_INFO_MAX_COUNT)
+    {
+        dmm_spin_lock(&g_timer_cfg.timer_lock);
+        tm_info =
+            (nsfw_timer_info *) list_get_first(&g_timer_cfg.exp_timer_head);
+        if (NULL == tm_info)
+        {
+            dmm_spin_unlock(&g_timer_cfg.timer_lock);
+            continue;
+        }
+        tm_info->alloc_flag = FALSE;
+        list_del(&tm_info->node);
+        dmm_spin_unlock(&g_timer_cfg.timer_lock);
+        /* here can't lock that it is possible that the tm_info->fun call reg timer or remove timer, which will cause deadlock */
+        if (NULL != tm_info->fun)
+        {
+            (void) tm_info->fun(tm_info->timer_type, tm_info->argv);
+        }
+        /* only after finish handle tm_info->fun, it can put it into timer_info_pool, avoid that it is applied by other timer */
+        if (0 == nsfw_mem_ring_enqueue(g_timer_cfg.timer_info_pool, tm_info))
+        {
+            NSFW_LOGERR("tm_info free failed]tm_info=%p,argv=%p,fun=%p",
+                        tm_info, tm_info->argv, tm_info->fun);
+        }
+
     }
 
 }
@@ -185,38 +203,32 @@ nsfw_timer_exp (u64 count)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-i32
-nsfw_get_timer_socket ()
+i32 nsfw_get_timer_socket()
 {
-  i32 tfd = timerfd_create (CLOCK_MONOTONIC, TFD_NONBLOCK);
-  if (tfd == -1)
+
+    i32 tfd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+    if (tfd == -1)
     {
-      NSFW_LOGERR ("timerfd_create failed!]errno=%d\n", errno);
-      return -1;
+        NSFW_LOGERR("timerfd_create failed!]errno=%d\n", errno);
+        return -1;
     }
 
-  /* close on exe */
-  if (-1 == nsfw_set_close_on_exec (tfd))
+    /* close on exec */
+    if (-1 == nsfw_set_close_on_exec(tfd))
     {
-      (void) nsfw_base_close (tfd);
-      NSFW_LOGERR ("set exec err]fd=%d, errno=%d", tfd, errno);
-      return -1;
+        (void) nsfw_base_close(tfd);
+        NSFW_LOGERR("set exec err]fd=%d, errno=%d", tfd, errno);
+        return -1;
     }
 
-  struct itimerspec ts;
-  ts.it_interval.tv_sec = NSFW_TIMER_CYCLE;
-  ts.it_interval.tv_nsec = 0;
-  ts.it_value.tv_sec = 0;
-  ts.it_value.tv_nsec = NSFW_TIMER_CYCLE;
-
-  if (timerfd_settime (tfd, 0, &ts, NULL) < 0)
+    if (timerfd_settime(tfd, 0, &g_timer_cfg.ts, NULL) < 0)
     {
-      NSFW_LOGERR ("timerfd_settime failed] errno=%d", errno);
-      close (tfd);
-      return -1;
+        NSFW_LOGERR("timerfd_settime failed] errno=%d", errno);
+        close(tfd);
+        return -1;
     }
 
-  return tfd;
+    return tfd;
 }
 
 /*****************************************************************************
@@ -230,53 +242,52 @@ nsfw_get_timer_socket ()
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-int
-nsfw_timer_notify_fun (i32 epfd, i32 fd, u32 events)
+int nsfw_timer_notify_fun(i32 epfd, i32 fd, u32 events)
 {
-  i32 rc;
+    i32 rc;
 
-  if ((events & EPOLLERR) || (events & EPOLLHUP) || (!(events & EPOLLIN)))
+    if ((events & EPOLLERR) || (events & EPOLLHUP) || (!(events & EPOLLIN)))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGWAR ("timer disconnect!]epfd=%d,timer=%d,event=0x%x", epfd,
-                   fd, events);
+        (void) nsfw_base_close(fd);
+        NSFW_LOGWAR("timer disconnect!]epfd=%d,timer=%d,event=0x%x", epfd,
+                    fd, events);
 
-      (void) nsfw_mgr_unreg_sock_fun (fd);
-      i32 timer_fd = nsfw_get_timer_socket ();
-      if (timer_fd < 0)
+        (void) nsfw_mgr_unreg_sock_fun(fd);
+        i32 timer_fd = nsfw_get_timer_socket();
+        if (timer_fd < 0)
         {
-          NSFW_LOGERR ("get timer_fd failed!]epfd=%d,timer_fd=%d,event=0x%x",
-                       epfd, fd, events);
-          return FALSE;
+            NSFW_LOGERR("get timer_fd faied!]epfd=%d,timer_fd=%d,event=0x%x",
+                        epfd, fd, events);
+            return FALSE;
         }
 
-      (void) nsfw_mgr_reg_sock_fun (timer_fd, nsfw_timer_notify_fun);
-      return TRUE;
+        (void) nsfw_mgr_reg_sock_fun(timer_fd, nsfw_timer_notify_fun);
+        return TRUE;
     }
 
-  u64 data;
-  while (1)
+    u64 data;
+    while (1)
     {
-      rc = nsfw_base_read (fd, &data, sizeof (data));
-      if (rc == 0)
+        rc = nsfw_base_read(fd, &data, sizeof(data));
+        if (rc == 0)
         {
-          NSFW_LOGERR ("timer_fd recv 0]timer_fd=%d,errno=%d", fd, errno);
-          break;
+            NSFW_LOGERR("timer_fd recv 0]timer_fd=%d,errno=%d", fd, errno);
+            break;
         }
-      else if (rc == -1)
+        else if (rc == -1)
         {
-          if (errno == EINTR || errno == EAGAIN)
+            if (errno == EINTR || errno == EAGAIN)
             {
-              break;
+                break;
             }
-          NSMON_LOGERR ("timer_fd recv]timer_fd=%d,errno=%d", fd, errno);
-          break;
+            NSMON_LOGERR("timer_fd recv]timer_fd=%d,errno=%d", fd, errno);
+            break;
         }
 
-      nsfw_timer_exp (data);
+        nsfw_timer_exp(data);
     }
 
-  return TRUE;
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -287,21 +298,19 @@ nsfw_timer_notify_fun (i32 epfd, i32 fd, u32 events)
 *   Return Value : u8
 *   Calls        :
 *   Called By    :
-*
 *****************************************************************************/
-u8
-nsfw_timer_start ()
+u8 nsfw_timer_start()
 {
-  i32 timer_fd = nsfw_get_timer_socket ();
-  if (timer_fd < 0)
+    i32 timer_fd = nsfw_get_timer_socket();
+    if (timer_fd < 0)
     {
-      NSFW_LOGERR ("get timer_fd failed!");
-      return FALSE;
+        NSFW_LOGERR("get timer_fd fail");
+        return FALSE;
     }
 
-  NSFW_LOGINF ("start timer_fd module!]timer_fd=%d", timer_fd);
-  (void) nsfw_mgr_reg_sock_fun (timer_fd, nsfw_timer_notify_fun);
-  return TRUE;
+    NSFW_LOGINF("start timer_fd module]timer_fd=%d", timer_fd);
+    (void) nsfw_mgr_reg_sock_fun(timer_fd, nsfw_timer_notify_fun);
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -312,64 +321,79 @@ nsfw_timer_start ()
 *   Return Value : int
 *   Calls        :
 *   Called By    :
-*
 *****************************************************************************/
-int
-nsfw_timer_module_init (void *param)
+int nsfw_timer_module_init(void *param)
 {
-  u32 proc_type = (u32) ((long long) param);
-  nsfw_timer_init_cfg *timer_cfg = &g_timer_cfg;
-  NSFW_LOGINF ("ps module init]type=%u", proc_type);
-  switch (proc_type)
+    u32 proc_type = (u32) ((long long) param);
+    nsfw_timer_init_cfg *timer_cfg = &g_timer_cfg;
+    if (proc_type != NSFW_PROC_CTRL)
     {
-    case NSFW_PROC_MAIN:
-      (void) NSFW_REG_SOFT_INT (NSFW_DBG_MODE_PARAM, g_hbt_switch, 0, 1);
-      break;
-    case NSFW_PROC_TOOLS:
-    case NSFW_PROC_CTRL:
-      break;
-    default:
-      return 0;
+        NSFW_LOGINF("ps module init]type=%u", proc_type);
     }
 
-  timer_cfg->timer_info_size = NSFW_TIMER_INFO_MAX_COUNT_DEF;
+    /* The first expiration should be the same as the cyclic interval. This fixs the bug of skipping one beat */
+    timer_cfg->ts.it_interval.tv_sec = NSFW_TIMER_CYCLE;
+    timer_cfg->ts.it_interval.tv_nsec = 0;
+    timer_cfg->ts.it_value.tv_sec = timer_cfg->ts.it_interval.tv_sec;
+    timer_cfg->ts.it_value.tv_nsec = timer_cfg->ts.it_interval.tv_nsec;
 
-  nsfw_mem_sppool pmpinfo;
-  pmpinfo.enmptype = NSFW_MRING_MPMC;
-  pmpinfo.usnum = timer_cfg->timer_info_size;
-  pmpinfo.useltsize = sizeof (nsfw_timer_info);
-  pmpinfo.isocket_id = NSFW_SOCKET_ANY;
-  pmpinfo.stname.entype = NSFW_NSHMEM;
-  if (-1 ==
-      SPRINTF_S (pmpinfo.stname.aname, NSFW_MEM_NAME_LENGTH, "%s",
-                 "MS_TM_INFOPOOL"))
+    switch (proc_type)
     {
-      NSFW_LOGERR ("SPRINTF_S failed");
-      return -1;
+        case NSFW_PROC_MASTER:
+            /** For nMaster, we call nsfw_mgr_ep_start() after every other module is inited,
+            ** so the first expiration is set to 1 nanosecond for nMaster to bring up nMain ASAP */
+            timer_cfg->ts.it_value.tv_sec = 0;
+            timer_cfg->ts.it_value.tv_nsec = 1;
+        case NSFW_PROC_MAIN:
+            (void) NSFW_REG_SOFT_INT(NSFW_DBG_MODE_PARAM, g_hbt_switch, 0, 1);
+            break;
+        case NSFW_PROC_TOOLS:
+        case NSFW_PROC_CTRL:
+            break;
+        default:
+            return 0;
     }
-  timer_cfg->timer_info_pool = nsfw_mem_sp_create (&pmpinfo);
 
-  if (!timer_cfg->timer_info_pool)
+    timer_cfg->timer_info_size = NSFW_TIMER_INFO_MAX_COUNT_DEF;
+
+    nsfw_mem_sppool pmpinfo;
+    pmpinfo.enmptype = NSFW_MRING_MPMC;
+    pmpinfo.usnum = timer_cfg->timer_info_size;
+    pmpinfo.useltsize = sizeof(nsfw_timer_info);
+    pmpinfo.isocket_id = NSFW_SOCKET_ANY;
+    pmpinfo.stname.entype = NSFW_NSHMEM;
+    if (-1 ==
+        sprintf_s(pmpinfo.stname.aname, NSFW_MEM_NAME_LENTH, "%s",
+                  "MS_TM_INFOPOOL"))
     {
-      NSFW_LOGERR ("alloc timer info pool_err");
-      return -1;
+        NSFW_LOGERR("sprintf_s fail");
+        return -1;
+    }
+    timer_cfg->timer_info_pool = nsfw_mem_sp_create(&pmpinfo);
+
+    if (!timer_cfg->timer_info_pool)
+    {
+        NSFW_LOGERR("alloc timer info pool_err");
+        return -1;
     }
 
-  MEM_STAT (NSFW_TIMER_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
-            nsfw_mem_get_len (timer_cfg->timer_info_pool, NSFW_MEM_SPOOL));
+    MEM_STAT(NSFW_TIMER_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
+             nsfw_mem_get_len(timer_cfg->timer_info_pool, NSFW_MEM_SPOOL));
 
-  INIT_LIST_HEAD (&(timer_cfg->timer_head));
-  INIT_LIST_HEAD (&(timer_cfg->exp_timer_head));
+    INIT_LIST_HEAD(&(timer_cfg->timer_head));
+    INIT_LIST_HEAD(&(timer_cfg->exp_timer_head));
 
-  (void) nsfw_timer_start ();
-  return 0;
+    dmm_spin_init(&g_timer_cfg.timer_lock);
+    (void) nsfw_timer_start();
+
+    return 0;
 }
 
 /* *INDENT-OFF* */
-NSFW_MODULE_NAME (NSFW_TIMER_MODULE)
-NSFW_MODULE_PRIORITY (10)
-NSFW_MODULE_DEPENDS (NSFW_MGR_COM_MODULE)
-NSFW_MODULE_INIT (nsfw_timer_module_init)
+NSFW_MODULE_NAME(NSFW_TIMER_MODULE)
+NSFW_MODULE_PRIORITY(10)
+NSFW_MODULE_DEPENDS(NSFW_MGR_COM_MODULE)
+NSFW_MODULE_INIT(nsfw_timer_module_init)
 /* *INDENT-ON* */
 
 #ifdef __cplusplus

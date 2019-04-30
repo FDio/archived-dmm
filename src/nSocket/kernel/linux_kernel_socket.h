@@ -23,9 +23,9 @@ extern "C"{
 /* *INDENT-ON* */
 #endif
 
-extern int lk_listen (int sockfd, int backlog);
-extern int lk_epollctl (int epfd, int op, int protoFd,
-                        struct epoll_event *event);
+extern int lk_listen(int sockfd, int backlog);
+extern int lk_epollctl(int epfd, int op, int protoFd,
+                       struct epoll_event *event);
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

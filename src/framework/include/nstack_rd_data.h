@@ -17,64 +17,62 @@
 #ifndef __NSTACK_RD_DATA_H
 #define __NSTACK_RD_DATA_H
 
-/*choose router base on ip seg*/
-#define STACK_NAME_MAX    32
-#define RD_PLANE_NAMELEN     (32)
-#define NSTACK_IP_BIT_MAX    (32)
-#define NSTACK_RD_DATA_MAX   (2048)
-#define RD_IP_STR_MAX_LEN    (32)
+#include "dmm_spinlock.h"
+#include "nstack_rd_api.h"
 
+/*choose router base on ip seg*/
+#define STACK_NAME_MAX       (32)
+#define RD_PLANE_NAMELEN     (32)
+#define NSTACK_RD_DATA_MAX   (2048)
+
+/* correspond to the parameters called by *socket* */
 typedef enum __rd_data_type
 {
-  RD_DATA_TYPE_IP,
-  RD_DATA_TYPE_PROTO,
-  RD_DATA_TYPE_MAX,
+    RD_DATA_TYPE_IP,            /* domain */
+    RD_DATA_TYPE_IP6,
+    RD_DATA_TYPE_TYPE,          /* type */
+    RD_DATA_TYPE_PROTO,         /* protocol */
+    RD_DATA_TYPE_MAX,
 } rd_data_type;
 
 typedef enum __rd_node_state
 {
-  RD_NODE_USELESS,
-  RD_NODE_USING,
-  RD_NODE_DELETING,
-  RD_NODE_MAX,
+    RD_NODE_USELESS,
+    RD_NODE_USING,
+    RD_NODE_DELETING,
+    RD_NODE_MAX,
 } rd_node_state;
 
-/*route info base on ip*/
-typedef struct __rd_route_ip_data
-{
-  unsigned int addr;
-  unsigned int masklen;
-  unsigned int resev[2];
-} rd_ip_data;
-
-/*route data*/
+/* route data */
 typedef struct __rd_route_data
 {
-  /*route info type , for example base on ip */
-  rd_data_type type;
-  char stack_name[RD_PLANE_NAMELEN];
-  union
-  {
-    rd_ip_data ipdata;
-    unsigned int proto_type;
-    /*:::other type to be add */
-  };
+    /*route info type , for example base on ip */
+    rd_data_type type;
+    char stack_name[RD_PLANE_NAMELEN];
+    union
+    {
+        rd_ip_data ipdata;
+        rd_type_data type_data;
+        rd_proto_data proto_data;
+        rd_ip6_data ip6data;
+        /*:::other type to be add */
+    };
 } rd_route_data;
 
 typedef struct __rd_route_node
 {
-  rd_node_state flag;
-  int agetime;
-  rd_route_data data;
+    rd_node_state flag;
+    int agetime;
+    rd_route_data data;
 } rd_route_node;
 
 typedef struct __rd_route_table
 {
-  int size;
-  int icnt;
-  rd_route_node node[NSTACK_RD_DATA_MAX];
+    volatile int rdtbl_ver;
+    dmm_spinlock_t rd_lock;
+    int size;
+    int icnt;
+    rd_route_node node[NSTACK_RD_DATA_MAX];
 } rd_route_table;
-
-#define MASK_V(ipaddr, masklen)  ((ipaddr) & (~0 << (NSTACK_IP_BIT_MAX - (masklen))))
 
 #endif

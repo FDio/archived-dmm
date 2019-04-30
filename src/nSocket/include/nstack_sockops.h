@@ -27,16 +27,19 @@ extern "C"{
 
 #define NSTACK_CAL_FUN(ops, fun, args, retval) \
 {\
+    /* reset retval before invoke api */ \
+    retval = -1;\
     if(NULL != (ops) && NULL != (ops)->pf##fun)\
     {\
         if((retval = ((ops)->pf##fun args)) == -1)\
         {\
-            NSSOC_LOGDBG("function=%s execute failed,ret=%d.errno=%d.",  #fun, retval, errno);  \
+            NSSOC_LOGDBG("function excute failed] func=%s,ret=%d,errno=%d.",  #fun, retval, errno);  \
         }\
     }\
     else\
     {\
-        NSSOC_LOGERR("NULL address erro, ops_pointer=%p,function=%s", (ops), #fun); \
+        /* the error info when it works well */ \
+        NSSOC_LOGDBG("NSTACK_CAL_FUN NULL] ops_pointer=%p,function=%s", (ops), #fun);    \
         errno = EBADF;  \
     }\
 }

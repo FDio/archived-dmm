@@ -34,10 +34,10 @@ dmm/release/lib64/libdmm_rsocket.so
 ```sh
 	#export LD_LIBRARY_PATH=${dmm}/release/lib64
 	#export LD_PRELOAD=${dmm}/release/lib64/libnStackAPI.so
-	#export NSTACK_MOD_CFG_FILE=${dmm}/stacks/rsocket/configure/module_config.json
-	#export NSTACK_MOD_CFG_RD=${dmm}/stacks/rsocket/configure/rd_config.json
+	#export NSTACK_MOD_CFG_FILE=${dmm}/stacks/rsocket/config/module_config.json
+	#export NSTACK_MOD_CFG_RD=${dmm}/stacks/rsocket/config/rd_config.json
 ```
-- Steps 2: Modify rd_config.json(located at dmm/stacks/rsocket/configure/)
+- Steps 2: Modify rd_config.json(located at dmm/stacks/rsocket/config/)
 ```sh
 	#vim rd_config.json
 	  //set "subnet": "192.168.21.1/24"

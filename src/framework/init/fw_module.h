@@ -17,14 +17,12 @@
 #ifndef _FW_MODULE
 #define _FW_MODULE
 #include <pthread.h>
-
+#include "nsfw_init_api.h"
 #ifdef __cplusplus
 /* *INDENT-OFF* */
 extern "C"{
 /* *INDENT-ON* */
 #endif /* _cplusplus */
-
-#include "nsfw_init.h"
 
 /* Unique name declare */
 #define NSFW__STRINGIFY(x) #x
@@ -37,43 +35,45 @@ extern "C"{
 
 #define NSFW_MODULE_INITFN(_fn) \
     static int _fn(void* param)
-extern nsfw_module_depends_t *nsfw_module_create_depends (char *name);
+
+#define NSFW_DEPENDS_SIZE 8
 
 #define NSFW_MODULE_SET_STATE(inst, state) ((inst)->stat = (state))
 
-typedef struct _nsfw_module_doneNode
-{
-  nsfw_module_instance_t *inst;
-  struct _nsfw_module_doneNode *next;
-} nsfw_module_doneNode_t;
-
-typedef struct _nsfw_module_manager
-{
-  pthread_mutex_t initMutex;
-  int done;                     // 0 - not finished, 1 - finished, -1 - error
-  nsfw_module_instance_t *inst;
-  nsfw_module_doneNode_t *doneHead;
-} nsfw_module_manager_t;
-
-extern int nsfw_module_addDoneNode (nsfw_module_instance_t * inst);
-
-extern nsfw_module_manager_t g_nsfw_module_manager;
-#define nsfw_module_getManager() (&g_nsfw_module_manager)
-
+/*Change module malloc to pool array*/
 #define NSFW_MODULE_INSTANCE_POOL_SIZE 64
 #define NSFW_MODULE_DEPENDS_POOL_SIZE 128
 
+typedef struct _nsfw_module_done_node
+{
+    nsfw_module_instance_t *inst;
+    struct _nsfw_module_done_node *next;
+} nsfw_module_done_node_t;
+
+typedef struct _nsfw_module_manager
+{
+    pthread_mutex_t initMutex;
+    int done;                   // 0 - not finished, 1 - finished, -1 - error
+    nsfw_module_instance_t *inst;
+    nsfw_module_done_node_t *doneHead;
+} nsfw_module_manager_t;
+
+extern int nsfw_module_add_done_node(nsfw_module_instance_t * inst);
+
+extern nsfw_module_manager_t g_nsfw_module_manager;
+#define nsfw_module_get_manager() (&g_nsfw_module_manager)
+
 typedef struct _nsfw_module_instance_pool
 {
-  int last_idx;
-    nsfw_module_instance_t
-    module_instance_pool[NSFW_MODULE_INSTANCE_POOL_SIZE];
+    int last_idx;
+      nsfw_module_instance_t
+        module_instance_pool[NSFW_MODULE_INSTANCE_POOL_SIZE];
 } nsfw_module_instance_pool_t;
 
 typedef struct _nsfw_module_depends_pool
 {
-  int last_idx;
-  nsfw_module_depends_t module_depends_pool[NSFW_MODULE_DEPENDS_POOL_SIZE];
+    int last_idx;
+    nsfw_module_depends_t module_depends_pool[NSFW_MODULE_DEPENDS_POOL_SIZE];
 } nsfw_module_depends_pool_t;
 
 #ifdef __cplusplus

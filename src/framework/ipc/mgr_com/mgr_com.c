@@ -20,8 +20,7 @@
 
 #include "types.h"
 #include "nstack_securec.h"
-#include "nsfw_init.h"
-#include "common_mem_api.h"
+#include "nsfw_init_api.h"
 
 #include "nsfw_mgr_com_api.h"
 #include "mgr_com.h"
@@ -32,13 +31,12 @@
 #include <stddef.h>
 #include <sys/epoll.h>
 #include <fcntl.h>
-#include <sys/stat.h>
 
 #include "nsfw_maintain_api.h"
 #include "nsfw_ps_api.h"
 #include "nsfw_fd_timer_api.h"
 
-#include "common_func.h"
+#include "nsfw_maintain_api.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -46,49 +44,50 @@ extern "C"{
 /* *INDENT-ON* */
 #endif /* __cplusplus */
 
-/* *INDENT-OFF* */
-
-/* *INDENT-OFF* */
 nsfw_mgr_msg_fun g_mgr_fun[MGR_MSG_MAX][NSFW_MGRCOM_MAX_PROC_FUN];
-nsfw_mgr_init_cfg g_mgr_com_cfg;
-nsfw_mgr_sock_map g_mgr_socket_map = {{0}, NULL};
-nsfw_mgrcom_stat g_mgr_stat;
-nsfw_mgrcom_proc g_ep_proc = { 0 };
-/* *INDENT-ON* */
-
-u32 g_mgr_sockfdmax = NSFW_MGRCOM_MAX_SOCKET;
-
-char g_proc_info[NSFW_PROC_MAX][NSTACK_MAX_PROC_NAME_LEN] = {
-  "", "nStackMain", "nStackMaster", "nStackLib", "nStackTools", "nStackCtrl",
-  "", "", "", "", "", "", "", "", "", ""
+/* *INDENT-OFF* */
+/* nstackMaster can't start daemon-stack successfully,
+    because daemon-stack can't successfully recv MGR_MSG_INIT_NTY_RSP */
+nsfw_mgr_init_cfg g_mgr_com_cfg =
+{
+    .msg_size = MGR_COM_MSG_COUNT_DEF,
+    .max_recv_timeout = MGR_COM_RECV_TIMEOUT_DEF,
+    .max_recv_drop_msg = MGR_COM_MAX_DROP_MSG_DEF,
 };
 
+nsfw_mgr_sock_map g_mgr_sockt_map = {{0}, NULL};
+nsfw_mgrcom_stat g_mgr_stat;
+nsfw_mgrcom_proc g_ep_proc = {0};
+u32 g_mgr_sockfdmax = NSFW_MGRCOM_MAX_SOCKET;
+
+
+char g_proc_info[NSFW_PROC_MAX][NSTACK_MAX_PROC_NAME_LEN] = {
+     ""
+    ,"nStackMain"
+    ,"nStackMaster"
+    ,"nStackLib"
+    ,"nStackCtrl"
+    ,"nStackTools"
+    ,"","","","",""
+    ,"","","","",""
+};
 /* *INDENT-ON* */
 
-int g_thread_policy = 0;
-int g_thread_pri = 0;
+char *g_home_direct = NULL;
 
-void
-nsfw_com_attr_set (int policy, int pri)
+char *nsfw_get_proc_name(u8 proc_type)
 {
-  g_thread_policy = policy;
-  g_thread_pri = pri;
-}
-
-char *
-nsfw_get_proc_name (u8 proc_type)
-{
-  if (proc_type >= NSFW_PROC_MAX || NSFW_PROC_NULL == proc_type)
+    if (proc_type >= NSFW_PROC_MAX || NSFW_PROC_NULL == proc_type)
     {
-      return NULL;
+        return NULL;
     }
 
-  return g_proc_info[proc_type];
+    return g_proc_info[proc_type];
 }
 
 /*****************************************************************************
 *   Prototype    : nsfw_mgr_reg_msg_fun
-*   Description  : reg the callback function when receive new message
+*   Description  : reg the callback funciton when receive new message
 *   Input        : u16 msg_type
 *                  nsfw_mgr_msg_fun fun
 *   Output       : None
@@ -96,29 +95,29 @@ nsfw_get_proc_name (u8 proc_type)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_reg_msg_fun (u16 msg_type, nsfw_mgr_msg_fun fun)
+u8 nsfw_mgr_reg_msg_fun(u16 msg_type, nsfw_mgr_msg_fun fun)
 {
-  u32 i;
-  if (MGR_MSG_MAX <= msg_type)
+    u32 i;
+    if (MGR_MSG_MAX <= msg_type)
     {
-      NSFW_LOGERR ("reg mgr_msg]msg_type=%u,fun=%p", msg_type, fun);
-      return FALSE;
+        NSFW_LOGERR("reg mgr_msg]msg_type=%u,fun=%p", msg_type, fun);
+        return FALSE;
     }
 
-  for (i = 0; i < NSFW_MGRCOM_MAX_PROC_FUN; i++)
+    for (i = 0; i < NSFW_MGRCOM_MAX_PROC_FUN; i++)
     {
-      if (NULL == g_mgr_fun[msg_type][i])
+        if (NULL == g_mgr_fun[msg_type][i])
         {
-          g_mgr_fun[msg_type][i] = fun;
-          NSFW_LOGINF ("reg mgr_msg fun suc]msg_type=%u,fun=%p", msg_type,
-                       fun);
-          return TRUE;
+            /*TODO should use cas */
+            g_mgr_fun[msg_type][i] = fun;
+            NSFW_LOGINF("reg mgr_msg fun suc]msg_type=%u,fun=%p", msg_type,
+                        fun);
+            return TRUE;
         }
     }
 
-  NSFW_LOGERR ("reg mgr_msg type full]msg_type=%u,fun=%p", msg_type, fun);
-  return FALSE;
+    NSFW_LOGERR("reg mgr_msg type full]msg_type=%u,fun=%p", msg_type, fun);
+    return FALSE;
 }
 
 /*****************************************************************************
@@ -130,10 +129,9 @@ nsfw_mgr_reg_msg_fun (u16 msg_type, nsfw_mgr_msg_fun fun)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-nsfw_mgr_msg *
-nsfw_mgr_null_rspmsg_alloc ()
+nsfw_mgr_msg *nsfw_mgr_null_rspmsg_alloc()
 {
-  return nsfw_mgr_msg_alloc (MGR_MSG_NULL, NSFW_PROC_NULL);
+    return nsfw_mgr_msg_alloc(MGR_MSG_NULL, NSFW_PROC_NULL);
 }
 
 /*****************************************************************************
@@ -146,86 +144,75 @@ nsfw_mgr_null_rspmsg_alloc ()
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-nsfw_mgr_msg *
-nsfw_mgr_msg_alloc (u16 msg_type, u8 dst_proc_type)
+nsfw_mgr_msg *nsfw_mgr_msg_alloc(u16 msg_type, u8 dst_proc_type)
 {
-  nsfw_mgr_msg *p_msg = NULL;
-  u8 from_mem_flag = FALSE;
-  u32 alloc_len = sizeof (nsfw_mgr_msg);
+    nsfw_mgr_msg *p_msg = NULL;
+    u8 from_mem_flag = FALSE;
+    u32 alloc_len = sizeof(nsfw_mgr_msg);
 
-  if (MGR_MSG_LAG_QRY_RSP_BEGIN <= msg_type)
+    if (MGR_MSG_LAG_QRY_RSP_BEGIN <= msg_type
+        || MGR_MSG_SPLNET_REQ == msg_type)
     {
-      from_mem_flag = TRUE;
-      alloc_len = NSFW_MGR_LARGE_MSG_LEN;
+        from_mem_flag = TRUE;
+        alloc_len = NSFW_MGR_LARGE_MSG_LEN;
     }
 
-  if ((NULL == g_mgr_com_cfg.msg_pool)
-      && (MGR_MSG_INIT_NTY_REQ == msg_type
-          || MGR_MSG_INIT_NTY_RSP == msg_type))
+    if ((NULL == g_mgr_com_cfg.msg_pool)
+        && (MGR_MSG_INIT_NTY_REQ == msg_type
+            || MGR_MSG_INIT_NTY_RSP == msg_type))
     {
-      from_mem_flag = TRUE;
+        from_mem_flag = TRUE;
     }
 
-  if (FALSE == from_mem_flag)
+    if (FALSE == from_mem_flag)
     {
-      if (0 ==
-          nsfw_mem_ring_dequeue (g_mgr_com_cfg.msg_pool, (void *) &p_msg))
+        if (0 ==
+            nsfw_mem_ring_dequeue(g_mgr_com_cfg.msg_pool, (void *) &p_msg))
         {
-          NSFW_LOGERR ("alloc msg full]type=%u,dst=%u", msg_type,
-                       dst_proc_type);
-          return NULL;
+            NSFW_LOGERR("alloc msg full]type=%u,dst=%u", msg_type,
+                        dst_proc_type);
+            return NULL;
         }
-      alloc_len = sizeof (nsfw_mgr_msg);
+        alloc_len = sizeof(nsfw_mgr_msg);
     }
-  else
+    else
     {
-      p_msg = (nsfw_mgr_msg *) malloc (alloc_len);
+        p_msg = (nsfw_mgr_msg *) malloc(alloc_len);     /*malloc() can be used */
     }
 
-  if (NULL == p_msg)
+    if (NULL == p_msg)
     {
-      NSFW_LOGERR ("alloc msg nul]type=%u,dst=%u", msg_type, dst_proc_type);
-      return NULL;
+        NSFW_LOGERR("alloc msg nul]type=%u,dst=%u", msg_type, dst_proc_type);
+        return NULL;
     }
 
-  if (EOK != MEMSET_S (p_msg, alloc_len, 0, alloc_len))
+    if (EOK != memset_s(p_msg, alloc_len, 0, alloc_len))
     {
-      p_msg->from_mem = from_mem_flag;
-      nsfw_mgr_msg_free (p_msg);
-      NSFW_LOGERR ("alloc msg MEMSET_S failed]type=%u,dst=%u", msg_type,
-                   dst_proc_type);
-      return NULL;
-    }
-  p_msg->from_mem = from_mem_flag;
+        p_msg->from_mem = from_mem_flag;
 
-  if (msg_type < MGR_MSG_RSP_BASE && msg_type > 0)
+        nsfw_mgr_msg_free(p_msg);
+        NSFW_LOGERR("alloc msg memset_s failed]type=%u,dst=%u", msg_type,
+                    dst_proc_type);
+        return NULL;
+    }
+    p_msg->from_mem = from_mem_flag;
+
+    if (msg_type < MGR_MSG_RSP_BASE && msg_type > 0)
     {
-      p_msg->seq = common_mem_atomic32_add_return (&g_mgr_com_cfg.cur_idx, 1);
+        p_msg->seq = dmm_atomic_add_return(&g_mgr_com_cfg.cur_idx, 1);
     }
 
-  p_msg->from_mem = from_mem_flag;
-  p_msg->msg_type = msg_type;
-  p_msg->src_pid = get_sys_pid ();
-  p_msg->src_proc_type = g_mgr_com_cfg.proc_type;
-  p_msg->msg_len = alloc_len;
-  p_msg->dst_proc_type = dst_proc_type;
-  p_msg->alloc_flag = TRUE;
-  p_msg->more_msg_flag = 0;
+    p_msg->from_mem = from_mem_flag;
+    p_msg->msg_type = msg_type;
+    p_msg->src_pid = get_sys_pid();
+    p_msg->src_proc_type = g_mgr_com_cfg.proc_type;
+    p_msg->msg_len = alloc_len;
+    p_msg->dst_proc_type = dst_proc_type;
+    p_msg->alloc_flag = TRUE;
+    p_msg->more_msg_flag = 0;
 
-  g_mgr_stat.msg_alloc++;
-  return p_msg;
-}
-
-static inline void
-lint_lock_1 ()
-{
-  return;
-}
-
-static inline void
-lint_unlock_1 ()
-{
-  return;
+    g_mgr_stat.msg_alloc++;
+    return p_msg;
 }
 
 /*****************************************************************************
@@ -237,27 +224,26 @@ lint_unlock_1 ()
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-nsfw_mgr_msg *
-nsfw_mgr_rsp_msg_alloc (nsfw_mgr_msg * req_msg)
+nsfw_mgr_msg *nsfw_mgr_rsp_msg_alloc(nsfw_mgr_msg * req_msg)
 {
-  nsfw_mgr_msg *p_msg = NULL;
-  if (NULL == req_msg)
+    nsfw_mgr_msg *p_msg = NULL;
+    if (NULL == req_msg)
     {
-      NSFW_LOGERR ("req msg nul!");
-      return NULL;
+        NSFW_LOGERR("req msg nul!");
+        return NULL;
     }
 
-  p_msg =
-    nsfw_mgr_msg_alloc (req_msg->msg_type + MGR_MSG_RSP_BASE,
-                        req_msg->src_proc_type);
-  if (NULL == p_msg)
+    p_msg =
+        nsfw_mgr_msg_alloc(req_msg->msg_type + MGR_MSG_RSP_BASE,
+                           req_msg->src_proc_type);
+    if (NULL == p_msg)
     {
-      return NULL;
+        return NULL;
     }
 
-  p_msg->dst_pid = req_msg->src_pid;
-  p_msg->seq = req_msg->seq;
-  return p_msg;
+    p_msg->dst_pid = req_msg->src_pid;
+    p_msg->seq = req_msg->seq;
+    return p_msg;
 }
 
 /*****************************************************************************
@@ -269,44 +255,87 @@ nsfw_mgr_rsp_msg_alloc (nsfw_mgr_msg * req_msg)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-void
-nsfw_mgr_msg_free (nsfw_mgr_msg * msg)
+void nsfw_mgr_msg_free(nsfw_mgr_msg * msg)
 {
-  if (NULL == msg)
+
+    if (NULL == msg)
     {
-      return;
+        return;
     }
 
-  if (FALSE == msg->alloc_flag)
+    if (FALSE == msg->alloc_flag)
     {
-      NSFW_LOGERR ("msg refree]msg=%p, type=%u", msg, msg->msg_type);
-      return;
+        NSFW_LOGERR("msg refree]msg=%p, type=%u", msg, msg->msg_type);
+        return;
     }
 
-  msg->alloc_flag = FALSE;
+    msg->alloc_flag = FALSE;
 
-  if (TRUE == msg->from_mem)
+    if (TRUE == msg->from_mem)
     {
-      if ((MGR_MSG_INIT_NTY_REQ == msg->msg_type
-           || MGR_MSG_INIT_NTY_RSP == msg->msg_type)
-          || (MGR_MSG_LAG_QRY_RSP_BEGIN <= msg->msg_type))
+        /*remove msg->msg_type judgement */
+        free(msg);              /*free() can be used */
+        g_mgr_stat.msg_free++;
+        return;
+    }
+    else
+    {
+        if (0 == nsfw_mem_ring_enqueue(g_mgr_com_cfg.msg_pool, msg))
         {
-          free (msg);
-          g_mgr_stat.msg_free++;
-          return;
+            NSFW_LOGERR("msg free failed pool full]msg=%p, type=%u", msg,
+                        msg->msg_type);
+            return;
         }
-      NSFW_LOGERR ("msg err free]type=%u", msg->msg_type);
+        g_mgr_stat.msg_free++;
     }
 
-  if (0 == nsfw_mem_ring_enqueue (g_mgr_com_cfg.msg_pool, msg))
+    return;
+}
+
+/*****************************************************************************
+*   Prototype    : get_home_path
+*   Description  : get the env "HOME" path info
+*   Input        :
+*   Output       : None
+*   Return Value : int
+*   Calls        :
+*   Called By    :
+*****************************************************************************/
+const char *get_home_path()
+{
+    //a extern global var, if not null ,just return it.
+    if (g_home_direct)
     {
-      NSFW_LOGERR ("msg free failed pool full]msg=%p, type=%u", msg,
-                   msg->msg_type);
-      return;
+        return g_home_direct;
     }
 
-  g_mgr_stat.msg_free++;
-  return;
+    //just need do one time.
+    const char *home_dir = getenv("HOME");      /*getenv() can be used */
+    if (getuid() != 0 && home_dir != NULL)
+    {
+        g_home_direct = realpath(home_dir, NULL);
+        if (!g_home_direct)
+        {
+            NSFW_LOGWAR("realpath fail]home_dir=%s,errno=%d", home_dir,
+                        errno);
+            return NULL;
+        }
+    }
+
+    //check if the path is valid
+    if (check_log_dir_valid(g_home_direct) < 0)
+    {
+        NSFW_LOGWAR("path check valid fail, free it]home_direct=%s",
+                    g_home_direct);
+        if (g_home_direct)
+        {
+            free(g_home_direct);
+            g_home_direct = NULL;
+        }
+        return NULL;
+    }
+
+    return g_home_direct;
 }
 
 /*****************************************************************************
@@ -318,82 +347,99 @@ nsfw_mgr_msg_free (nsfw_mgr_msg * msg)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-i32
-nsfw_mgr_get_listen_socket ()
+i32 nsfw_mgr_get_listen_socket()
 {
-  i32 fd, len, retVal;
-  struct sockaddr_un un;
-  char name[NSFW_MGRCOM_PATH_LEN] = { 0 };
+    i32 fd, len;
+    struct sockaddr_un un;
 
-  if ((fd = nsfw_base_socket (AF_UNIX, SOCK_STREAM, 0)) < 0)
+    if ((fd = nsfw_base_socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
-      NSFW_LOGERR ("create sock failed!");
-      return -1;
+        NSFW_LOGERR("create sock failed!");
+        return -1;
     }
 
-  retVal = STRCPY_S ((char *) name, sizeof (name),
-                     (char *) g_mgr_com_cfg.domain_path);
-  if (EOK != retVal)
+    if (-1 == unlink((char *) g_mgr_com_cfg.domain_path))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("module mgr get listen STRCPY_S failed! ret=%d", retVal);
-      return -1;
+        NSFW_LOGWAR("unlink failed]error=%d", errno);
     }
 
-  if (EOK != STRCAT_S (name, NSFW_MGRCOM_PATH_LEN, NSFW_MAIN_FILE))
+    if (EOK != memset_s(&un, sizeof(un), 0, sizeof(un)))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("module mgr get listen STRCAT_S failed!");
-      return -1;
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("create sock memset_s failed!] error=%d", errno);
+        return -1;
     }
 
-  if (-1 == unlink ((char *) name))
+    un.sun_family = AF_UNIX;
+    int retVal = strcpy_s((char *) un.sun_path, sizeof(un.sun_path),
+                          (char *) g_mgr_com_cfg.domain_path);
+    if (EOK != retVal)
     {
-      NSFW_LOGWAR ("unlink failed]error=%d", errno);
-    }
-  if (EOK != MEMSET_S (&un, sizeof (un), 0, sizeof (un)))
-    {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("create sock MEMSET_S failed!] error=%d", errno);
-      return -1;
-    }
-
-  un.sun_family = AF_UNIX;
-  retVal = STRCPY_S ((char *) un.sun_path, sizeof (un.sun_path),
-                     (char *) name);
-  if (EOK != retVal)
-    {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("create sock STRCPY_S failed!] error=%d", errno);
-      return -1;
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("create sock strcpy_s failed!] error=%d", errno);
+        return -1;
     }
 
-  int rc = nsfw_set_close_on_exec (fd);
-  if (rc == -1)
+    /* close on exec */
+    int rc = nsfw_set_close_on_exec(fd);
+    if (rc == -1)
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("set exec err]fd=%d, errno=%d", fd, errno);
-      return -1;
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("set exec err]fd=%d, errno=%d", fd, errno);
+        return -1;
     }
 
-  len = offsetof (struct sockaddr_un, sun_path) +strlen ((char *) name);
+    len = offsetof(struct sockaddr_un, sun_path) +strlen((char *) g_mgr_com_cfg.domain_path);   /*strlen() can be used */
 
-  if (nsfw_base_bind (fd, (struct sockaddr *) &un, len) < 0)
+    if (nsfw_base_bind(fd, (struct sockaddr *) &un, len) < 0)
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("bind failed!]mgr_fd=%d,error=%d", fd, errno);
-      return -1;
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("bind failed!]mgr_fd=%d,error=%d", fd, errno);
+        return -1;
     }
 
-  if (nsfw_base_listen (fd, 10) < 0)
+    if (nsfw_base_listen(fd, 10) < 0)
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("listen failed!]mgr_fd=%d,error=%d", fd, errno);
-      return -1;
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("listen failed!]mgr_fd=%d,error=%d", fd, errno);
+        return -1;
     }
 
-  NSFW_LOGINF ("mgr com start with]mgr_fd=%d", fd);
-  return fd;
+    NSFW_LOGINF("mgr com start with]mgr_fd=%d", fd);
+    return fd;
+}
+
+/*****************************************************************************
+*   Prototype    : nsfw_mgr_connect_with_retry
+*   Description  : connect dst_socket, retry some times every 100ms
+*   Input        : nsfw_mgr_msg* req_msg
+*                  nsfw_mgr_msg* rsp_msg
+*   Output       : None
+*   Return Value : u8
+*   Calls        :
+*   Called By    :
+*****************************************************************************/
+i32 nsfw_mgr_connect_with_retry(i32 fd, struct sockaddr * un, i32 len,
+                                i32 interval_ms, i32 retry_times)
+{
+    if (nsfw_base_connect(fd, un, len) == 0)
+    {
+        return 0;
+    }
+    while (retry_times > 0)
+    {
+        sys_sleep_ns(0, interval_ms * 1000 * 1000);
+        --retry_times;
+        if (nsfw_base_connect(fd, un, len) == 0)
+        {
+            return 0;
+        }
+        else if (errno != ECONNRESET && errno != ECONNREFUSED)  /* Retry is for Master upgrade only */
+        {
+            return -1;
+        }
+    }
+    return -1;
 }
 
 /*****************************************************************************
@@ -406,115 +452,138 @@ nsfw_mgr_get_listen_socket ()
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-i32
-nsfw_mgr_get_connect_socket (u8 proc_type, u32 host_pid)
+i32 nsfw_mgr_get_connect_socket(u8 proc_type, u32 host_pid)
 {
-  i32 fd, len;
-  char *name;
-  struct sockaddr_un un;
-  const char *directory = NSFW_DOMAIN_DIR;
-  const char *home_dir = getenv ("HOME");
-
-  if (getuid () != 0 && home_dir != NULL)
-    directory = home_dir;
-
-  switch (proc_type)
+    i32 fd = -1;
+    i32 len = 0;
+    char *name;
+    struct sockaddr_un un;
+    i32 retry_times = 0;
+    i32 interval_ms = 50;
+    const char *directory = NSFW_DOMAIN_DIR;
+    const char *home_dir = get_home_path();
+    if (home_dir)
     {
-    case NSFW_PROC_MAIN:
-      name = NSFW_MAIN_FILE;
-      break;
-    case NSFW_PROC_ALARM:
-      directory = "/tmp";
-      name = NSFW_ALARM_FILE;
-      break;
-    default:
-      NSFW_LOGERR ("get dst socket err]type=%u,pid=%u", proc_type, host_pid);
-      return -1;
+        directory = home_dir;
     }
 
-  if ((fd = nsfw_base_socket (AF_UNIX, SOCK_STREAM, 0)) < 0)
+    switch (proc_type)
     {
-      NSFW_LOGERR ("create socket err]type=%u,pid=%u,errno=%d", proc_type,
-                   host_pid, errno);
-      return -1;
+        case NSFW_PROC_MAIN:
+            name = NSFW_MAIN_FILE;
+            break;
+        case NSFW_PROC_MASTER:
+            name = NSFW_MASTER_FILE;
+            retry_times = 10;
+            break;
+        case NSFW_PROC_ALARM:  /* alarm */
+            directory = "/tmp";
+            name = NSFW_ALARM_FILE;
+            break;
+        default:
+            NSFW_LOGERR("get dst socket err]type=%u,pid=%u", proc_type,
+                        host_pid);
+            return -1;
     }
 
-  if (EOK != MEMSET_S (&un, sizeof (un), 0, sizeof (un)))
+    if ((fd = nsfw_base_socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("get dst socket err]mgr_fd=%d,type=%u,pid=%u", fd,
-                   proc_type, host_pid);
-      return -1;
+        NSFW_LOGERR("create socket err]type=%u,pid=%u,errno=%d", proc_type,
+                    host_pid, errno);
+        return -1;
     }
 
-  struct timeval tv;
-  tv.tv_sec = MGR_COM_RECV_TIMEOUT;
-  tv.tv_usec = 0;
-  if (nsfw_base_setsockopt
-      (fd, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof tv))
+    if (EOK != memset_s(&un, sizeof(un), 0, sizeof(un)))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("setsockopt socket err]mgr_fd=%d,type=%u,pid=%u", fd,
-                   proc_type, host_pid);
-      return -1;
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("get dst socket err]mgr_fd=%d,type=%u,pid=%u", fd,
+                    proc_type, host_pid);
+        return -1;
     }
 
-  int rc = nsfw_set_close_on_exec (fd);
-  if (rc == -1)
+    struct timeval tv;
+    tv.tv_sec = MGR_COM_RECV_TIMEOUT;
+    tv.tv_usec = 0;
+    if (nsfw_base_setsockopt
+        (fd, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof tv))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("set exec err]fd=%d, errno=%d", fd, errno);
-      return -1;
+        NSFW_LOGERR
+            ("setsockopt socket err]mgr_fd=%d,type=%u,pid=%u,errno=%d", fd,
+             proc_type, host_pid, errno);
+        (void) nsfw_base_close(fd);
+        return -1;
     }
 
-  int size, size_len;
-  size = MAX_RECV_BUF_DEF;
-  size_len = sizeof (size);
-  if (0 >
-      nsfw_base_setsockopt (fd, SOL_SOCKET, SO_RCVBUF, (void *) &size,
-                            (socklen_t) size_len))
+    tv.tv_sec = MGR_COM_SEND_TIMEOUT_DEF;
+    tv.tv_usec = 0;
+    if (nsfw_base_setsockopt
+        (fd, SOL_SOCKET, SO_SNDTIMEO, (char *) &tv, sizeof tv))
     {
-      NSFW_LOGERR ("set socket opt err!]error=%d", errno);
+        NSFW_LOGERR
+            ("setsockopt socket err]mgr_fd=%d,type=%u,pid=%u,errno=%d", fd,
+             proc_type, host_pid, errno);
+        (void) nsfw_base_close(fd);
+        return -1;
     }
 
-  if (0 >
-      nsfw_base_setsockopt (fd, SOL_SOCKET, SO_SNDBUF, (void *) &size,
-                            (socklen_t) size_len))
+    /* close on exec Add Begin */
+    int rc = nsfw_set_close_on_exec(fd);
+    if (rc == -1)
     {
-      NSFW_LOGERR ("set socket opt err!]error=%d", errno);
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("set exec err]fd=%d, errno=%d", fd, errno);
+        return -1;
     }
 
-  un.sun_family = AF_UNIX;;
-  int retVal = STRCPY_S ((char *) un.sun_path, sizeof (un.sun_path),
-                         (char *) directory);
-  if (EOK != retVal)
+    int size, size_len;
+    size = MAX_RECV_BUF_DEF;
+    size_len = sizeof(size);
+    if (0 >
+        nsfw_base_setsockopt(fd, SOL_SOCKET, SO_RCVBUF, (void *) &size,
+                             (socklen_t) size_len))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("create sock STRCPY_S failed!] error=%d", errno);
-      return -1;
+        NSFW_LOGERR("set socket opt err]error=%d", errno);
     }
 
-  retVal = STRCAT_S (un.sun_path, sizeof (un.sun_path), name);
-  if (EOK != retVal)
+    if (0 >
+        nsfw_base_setsockopt(fd, SOL_SOCKET, SO_SNDBUF, (void *) &size,
+                             (socklen_t) size_len))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR ("create sock STRCAT_S failed!] error=%d", errno);
-      return -1;
+        NSFW_LOGERR("set socket opt err]error=%d", errno);
     }
 
-  len = offsetof (struct sockaddr_un, sun_path) +strlen (un.sun_path);
-  if (nsfw_base_connect (fd, (struct sockaddr *) &un, len) < 0)
+    un.sun_family = AF_UNIX;;
+    int retVal = strcpy_s((char *) un.sun_path, sizeof(un.sun_path),
+                          (char *) directory);
+    if (EOK != retVal)
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGERR
-        ("create socket err]mgr_fd=%d,type=%u,pid=%u,errno=%d,path=%s", fd,
-         proc_type, host_pid, errno, un.sun_path);
-      return -1;
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("create sock strcpy_s fail]error=%d", errno);
+        return -1;
     }
 
-  NSFW_LOGINF ("get dst socket]mgr_fd=%d,type=%u,pid=%u", fd, proc_type,
-               host_pid);
-  return (fd);
+    retVal = strcat_s(un.sun_path, sizeof(un.sun_path), name);
+    if (EOK != retVal)
+    {
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR("create sock strcat_s fail]error=%d", errno);
+        return -1;
+    }
+
+    len = offsetof(struct sockaddr_un, sun_path) +strlen(un.sun_path);  /*strlen() can be used */
+    if (nsfw_mgr_connect_with_retry
+        (fd, (struct sockaddr *) &un, len, interval_ms, retry_times) < 0)
+    {
+        (void) nsfw_base_close(fd);
+        NSFW_LOGERR
+            ("connect socket failed]mgr_fd=%d,type=%u,pid=%u,errno=%d,path=%s",
+             fd, proc_type, host_pid, errno, un.sun_path);
+        return -1;
+    }
+
+    NSFW_LOGINF("get dst socket]mgr_fd=%d,type=%u,pid=%u", fd, proc_type,
+                host_pid);
+    return fd;
 }
 
 /*****************************************************************************
@@ -528,33 +597,42 @@ nsfw_mgr_get_connect_socket (u8 proc_type, u32 host_pid)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-NSTACK_STATIC inline u8
-nsfw_mgr_new_socket (i32 fd, u8 proc_type, u32 host_pid)
+NSTACK_STATIC inline u8 nsfw_mgr_new_socket(i32 fd, u8 proc_type,
+                                            u32 host_pid)
 {
-  nsfw_mgr_sock_info *sock_info = NULL;
-  if (((i32) NSFW_MGR_FD_MAX <= fd) || (fd < 0) || (!g_mgr_socket_map.sock))
+    nsfw_mgr_sock_info *sock_info = NULL;
+    if (((i32) NSFW_MGR_FD_MAX <= fd) || (fd < 0) || (!g_mgr_sockt_map.sock))
     {
-      NSFW_LOGERR ("fd err]mgr_fd=%d, sock=%p", fd, g_mgr_socket_map.sock);
-      return FALSE;
+        NSFW_LOGERR("fd err]mgr_fd=%d, sock=%p", fd, g_mgr_sockt_map.sock);
+        return FALSE;
     }
 
-  sock_info = &g_mgr_socket_map.sock[fd];
-  if (host_pid != sock_info->host_pid)
+    sock_info = &g_mgr_sockt_map.sock[fd];
+    if (host_pid != sock_info->host_pid)
     {
-      NSFW_LOGDBG
-        ("update sock info]mgr_fd=%d,old_pid=%u,new_pid=%u,type=%u", fd,
-         sock_info->host_pid, host_pid, proc_type);
+        /* Fix mgr fd leak */
+        if (g_mgr_com_cfg.proc_type == NSFW_PROC_MAIN
+            && (proc_type == NSFW_PROC_MAIN || proc_type == NSFW_PROC_MASTER))
+        {
+            NSFW_LOGINF("update sock]fd=%d,opid=%u,npid=%u,type=%u", fd,
+                        sock_info->host_pid, host_pid, proc_type);
+        }
+        else
+        {
+            NSFW_LOGDBG("update sock]fd=%d,opid=%u,npid=%u,type=%u", fd,
+                        sock_info->host_pid, host_pid, proc_type);
+        }
     }
 
-  sock_info->host_pid = host_pid;
-  sock_info->proc_type = proc_type;
+    sock_info->host_pid = host_pid;
+    sock_info->proc_type = proc_type;
 
-  if (proc_type < NSFW_PROC_MAX)
+    if (proc_type < NSFW_PROC_MAX)
     {
-      g_mgr_socket_map.proc_cache[proc_type] = fd;
+        g_mgr_sockt_map.proc_cache[proc_type] = fd;
     }
 
-  return TRUE;
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -566,29 +644,28 @@ nsfw_mgr_new_socket (i32 fd, u8 proc_type, u32 host_pid)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-NSTACK_STATIC inline u8
-nsfw_mgr_del_socket (u32 fd)
+NSTACK_STATIC inline u8 nsfw_mgr_del_socket(u32 fd)
 {
-  nsfw_mgr_sock_info *sock_info = NULL;
-  if ((NSFW_MGR_FD_MAX <= fd) || (!g_mgr_socket_map.sock))
+    nsfw_mgr_sock_info *sock_info = NULL;
+    if ((NSFW_MGR_FD_MAX <= fd) || (!g_mgr_sockt_map.sock))
     {
-      NSFW_LOGERR ("fd err]mgr_fd=%u, sock=%p", fd, g_mgr_socket_map.sock);
-      return FALSE;
+        NSFW_LOGERR("fd err]mgr_fd=%u,sock=%p", fd, g_mgr_sockt_map.sock);
+        return FALSE;
     }
 
-  sock_info = &g_mgr_socket_map.sock[fd];
+    sock_info = &g_mgr_sockt_map.sock[fd];
 
-  if (sock_info->proc_type < NSFW_PROC_MAX
-      && fd == g_mgr_socket_map.proc_cache[sock_info->proc_type])
+    if (sock_info->proc_type < NSFW_PROC_MAX
+        && fd == g_mgr_sockt_map.proc_cache[sock_info->proc_type])
     {
-      g_mgr_socket_map.proc_cache[sock_info->proc_type] = 0;
+        g_mgr_sockt_map.proc_cache[sock_info->proc_type] = 0;
     }
 
-  NSFW_LOGDBG ("del sock]mgr_fd=%u,type=%u,pid=%u", fd,
-               sock_info->proc_type, sock_info->host_pid);
-  sock_info->host_pid = 0;
-  sock_info->proc_type = 0;
-  return TRUE;
+    NSFW_LOGDBG("del sock]mgr_fd=%u,type=%u,pid=%u", fd,
+                sock_info->proc_type, sock_info->host_pid);
+    sock_info->host_pid = 0;
+    sock_info->proc_type = 0;
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -601,53 +678,52 @@ nsfw_mgr_del_socket (u32 fd)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-NSTACK_STATIC inline i32
-nsfw_mgr_get_dst_socket (u8 proc_type, u32 dst_pid)
+NSTACK_STATIC inline i32 nsfw_mgr_get_dst_socket(u8 proc_type, u32 dst_pid)
 {
-  i32 fd = -1;
+    i32 fd = -1;
 
-  nsfw_mgr_sock_info *sock_info = NULL;
+    nsfw_mgr_sock_info *sock_info = NULL;
 
-  if (proc_type < NSFW_PROC_MAX)
+    if (proc_type < NSFW_PROC_MAX)
     {
-      fd = g_mgr_socket_map.proc_cache[proc_type];
+        fd = g_mgr_sockt_map.proc_cache[proc_type];
     }
 
-  if (!g_mgr_socket_map.sock)
+    if (!g_mgr_sockt_map.sock)
     {
-      return -1;
+        return -1;
     }
 
-  if (fd > 0 && fd < (i32) NSFW_MGR_FD_MAX)
+    if (fd > 0 && fd < (i32) NSFW_MGR_FD_MAX)
     {
-      sock_info = &g_mgr_socket_map.sock[fd];
-      if (sock_info->host_pid != 0)
+        sock_info = &g_mgr_sockt_map.sock[fd];
+        if (sock_info->host_pid != 0)
         {
-          if (0 == dst_pid || dst_pid == sock_info->host_pid)
+            if (0 == dst_pid || dst_pid == sock_info->host_pid)
             {
-              return fd;
+                return fd;
             }
         }
-      else if (proc_type == sock_info->proc_type)
+        else if (proc_type == sock_info->proc_type)
         {
-          return fd;
+            return fd;
         }
     }
 
-  i32 i;
-  for (i = 0; i < (i32) NSFW_MGR_FD_MAX; i++)
+    i32 i;
+    for (i = 0; i < (i32) NSFW_MGR_FD_MAX; i++)
     {
-      sock_info = &g_mgr_socket_map.sock[i];
-      if (sock_info->host_pid != 0 && proc_type == sock_info->proc_type)
+        sock_info = &g_mgr_sockt_map.sock[i];
+        if (sock_info->host_pid != 0 && proc_type == sock_info->proc_type)
         {
-          if (0 == dst_pid || dst_pid == sock_info->host_pid)
+            if (0 == dst_pid || dst_pid == sock_info->host_pid)
             {
-              return i;
+                return i;
             }
         }
     }
 
-  return -1;
+    return -1;
 }
 
 /*****************************************************************************
@@ -660,17 +736,16 @@ nsfw_mgr_get_dst_socket (u8 proc_type, u32 dst_pid)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-i32
-nsfw_mgr_get_new_socket (u8 proc_type, u32 dst_pid)
+i32 nsfw_mgr_get_new_socket(u8 proc_type, u32 dst_pid)
 {
-  i32 fd = 0;
-  fd = nsfw_mgr_get_connect_socket (proc_type, dst_pid);
-  if (fd > 0)
+    i32 fd = 0;
+    fd = nsfw_mgr_get_connect_socket(proc_type, dst_pid);
+    if (fd > 0)
     {
-      (void) nsfw_mgr_new_socket (fd, proc_type, dst_pid);
-      (void) nsfw_mgr_reg_sock_fun (fd, nsfw_mgr_new_msg);
+        (void) nsfw_mgr_new_socket(fd, proc_type, dst_pid);
+        (void) nsfw_mgr_reg_sock_fun(fd, nsfw_mgr_new_msg);
     }
-  return fd;
+    return fd;
 }
 
 /*****************************************************************************
@@ -682,20 +757,19 @@ nsfw_mgr_get_new_socket (u8 proc_type, u32 dst_pid)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_clr_fd_lock ()
+u8 nsfw_mgr_clr_fd_lock()
 {
-  i32 i;
-  if (!g_mgr_socket_map.sock)
+    i32 i;
+    if (!g_mgr_sockt_map.sock)
     {
-      NSFW_LOGERR ("clr fd lock fail, sock is null");
-      return FALSE;
+        NSFW_LOGERR("clr fd lock fail, sock is null");
+        return FALSE;
     }
-  for (i = 0; i < (i32) NSFW_MGR_FD_MAX; i++)
+    for (i = 0; i < (i32) NSFW_MGR_FD_MAX; i++)
     {
-      common_mem_spinlock_init (&(g_mgr_socket_map.sock[i].opr_lock));
+        dmm_spin_init(&(g_mgr_sockt_map.sock[i].opr_lock));
     }
-  return TRUE;
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -708,15 +782,14 @@ nsfw_mgr_clr_fd_lock ()
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-void
-nsfw_mgr_close_dst_proc (u8 proc_type, u32 dst_pid)
+void nsfw_mgr_close_dst_proc(u8 proc_type, u32 dst_pid)
 {
-  i32 fd = nsfw_mgr_get_dst_socket (proc_type, dst_pid);
-  if (fd > 0)
+    i32 fd = nsfw_mgr_get_dst_socket(proc_type, dst_pid);
+    if (fd > 0)
     {
-      (void) nsfw_mgr_del_socket (fd);
-      (void) nsfw_mgr_unreg_sock_fun (fd);
-      (void) nsfw_base_close (fd);
+        (void) nsfw_mgr_del_socket(fd);
+        (void) nsfw_mgr_unreg_sock_fun(fd);
+        (void) nsfw_base_close(fd);
     }
 }
 
@@ -730,49 +803,49 @@ nsfw_mgr_close_dst_proc (u8 proc_type, u32 dst_pid)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_send_msg_socket (u32 fd, nsfw_mgr_msg * msg)
+u8 nsfw_mgr_send_msg_socket(u32 fd, nsfw_mgr_msg * msg)
 {
-  i32 send_len = 0;
-  i32 off_set = 0;
+    i32 send_len = 0;
+    i32 off_set = 0;
 
-  if (NULL == msg)
+    if (NULL == msg)
     {
-      NSFW_LOGERR ("msg nul]mgr_fd=%u", fd);
-      return FALSE;
+        NSFW_LOGERR("msg nul]mgr_fd=%u", fd);
+        return FALSE;
     }
 
-  if (msg->msg_len < sizeof (nsfw_mgr_msg))
+    if (msg->msg_len < sizeof(nsfw_mgr_msg))
     {
-      msg->msg_len = sizeof (nsfw_mgr_msg);
+        msg->msg_len = sizeof(nsfw_mgr_msg);
     }
 
-  if (msg->msg_type == MGR_MSG_LARGE_ALARM_RSP)
+    /* only need send msg->msg_body */
+    if (msg->msg_type == MGR_MSG_LARGE_ALARM_RSP)
     {
-      off_set = NSFW_MGR_MSG_HDR_LEN;
+        off_set = NSFW_MGR_MSG_HDR_LEN;
     }
 
-  do
+    /*TODO if closed by peer, may send failed, should close this fd */
+    do
     {
-      off_set += send_len;
-      send_len =
-        nsfw_base_send (fd, (char *) msg + off_set, msg->msg_len - off_set,
-                        MSG_NOSIGNAL);
-      if (send_len <= 0)
+        off_set += send_len;
+        send_len =
+            nsfw_base_send(fd, (char *) msg + off_set,
+                           msg->msg_len - off_set, MSG_NOSIGNAL);
+        if (send_len <= 0)
         {
-          NSFW_LOGERR
-            ("send error]mgr_fd=%u,send_len=%d,off_set=%d,errno=%d" MSGINFO,
-             fd, send_len, off_set, errno, PRTMSG (msg));
-          return FALSE;
+            NSFW_LOGERR("send err]mgr_fd=%u,send_len=%d,off_set=%d,errno=%d"
+                        MSGINFO, fd, send_len, off_set, errno, PRTMSG(msg));
+            return FALSE;
         }
     }
-  while ((send_len + off_set) < (i32) msg->msg_len);
-  NSFW_LOGDBG ("send mgr_msg suc]mgr_fd=%u," MSGINFO, fd, PRTMSG (msg));
-  g_mgr_stat.msg_send[msg->msg_type]++;
-  return TRUE;
+    while ((send_len + off_set) < (i32) msg->msg_len);
+    NSFW_LOGDBG("send mgr_msg suc]mgr_fd=%u," MSGINFO, fd, PRTMSG(msg));
+    g_mgr_stat.msg_send[msg->msg_type]++;
+    return TRUE;
 }
 
-#define MAX_RECV_COUNT 100
+#define MAX_RECV_COUNT 2
 
 /*****************************************************************************
 *   Prototype    : nsfw_mgr_recv_msg_socket
@@ -784,119 +857,248 @@ nsfw_mgr_send_msg_socket (u32 fd, nsfw_mgr_msg * msg)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_recv_msg_socket (u32 fd, nsfw_mgr_msg * msg,
-                          nsfw_mgr_msg ** large_msg)
+u8 nsfw_mgr_recv_msg_socket(u32 fd, nsfw_mgr_msg * msg,
+                            nsfw_mgr_msg ** large_msg)
 {
-  i32 recv_len = 0;
-  i32 off_set = 0;
-  u32 msg_len = 0;
-  i32 max_count = 0;
-  if (NULL == msg)
+    i32 recv_len = 0;
+    i32 off_set = 0;
+    u32 msg_len = 0;
+    i32 max_count = 0;
+    if (NULL == msg)
     {
-      return FALSE;
+        return FALSE;
     }
 
-  u8 from_flag = msg->from_mem;
-  msg_len = msg->msg_len;
-  do
+    u8 from_flag = msg->from_mem;
+    msg_len = msg->msg_len;
+    do
     {
-      off_set += recv_len;
-      recv_len =
-        nsfw_base_recv (fd, (char *) msg + off_set, msg_len - off_set, 0);
-      if (recv_len <= 0)
+        off_set += recv_len;
+        recv_len =
+            nsfw_base_recv(fd, (char *) msg + off_set, msg_len - off_set, 0);
+        if (recv_len <= 0)
         {
-          if ((EINTR == errno || EAGAIN == errno)
-              && (max_count < MAX_RECV_COUNT))
+            if ((EINTR == errno || EAGAIN == errno)
+                && (max_count < MAX_RECV_COUNT))
             {
-              recv_len = 0;
-              max_count++;
-              continue;
+                recv_len = 0;
+                max_count++;
+                continue;
             }
 
-          NSFW_LOGERR
-            ("recv error]mgr_fd=%u,recv_len=%d,off_set=%d,errno=%d,"
-             MSGINFO, fd, recv_len, off_set, errno, PRTMSG (msg));
-          msg->from_mem = from_flag;
-          return FALSE;
+            NSFW_LOGERR("recv err]mgr_fd=%u,recv_len=%d,off_set=%d,errno=%d,"
+                        MSGINFO, fd, recv_len, off_set, errno, PRTMSG(msg));
+            msg->from_mem = from_flag;
+            return FALSE;
         }
     }
-  while (recv_len + off_set < (i32) msg_len);
+    while (recv_len + off_set < (i32) msg_len);
 
-  msg->from_mem = from_flag;
+    msg->from_mem = from_flag;
 
-  g_mgr_stat.msg_recv[msg->msg_type]++;
+    g_mgr_stat.msg_recv[msg->msg_type]++;
 
-  if (msg->msg_len <= msg_len)
+    if (msg->msg_len <= msg_len)
     {
-      NSFW_LOGDBG ("recv mgr_msg suc]mgr_fd=%u," MSGINFO, fd, PRTMSG (msg));
-      return TRUE;
+        NSFW_LOGDBG("recv mgr_msg suc]mgr_fd=%u," MSGINFO, fd, PRTMSG(msg));
+        return TRUE;
     }
 
-  if (large_msg == NULL)
+    if (large_msg == NULL)
     {
-      return TRUE;
+        return TRUE;
     }
 
-  nsfw_mgr_msg *l_msg =
-    nsfw_mgr_msg_alloc (msg->msg_type, msg->dst_proc_type);
-  if (NULL == l_msg)
+    nsfw_mgr_msg *l_msg =
+        nsfw_mgr_msg_alloc(msg->msg_type, msg->dst_proc_type);
+    if (NULL == l_msg)
     {
-      return TRUE;
+        return TRUE;
     }
 
-  if (l_msg->msg_len <= msg_len)
+    if (l_msg->msg_len <= msg_len)
     {
-      NSFW_LOGWAR ("alloc new msg error!]len=%u,org_len=%u,type=%u",
-                   l_msg->msg_len, msg->msg_len, msg->msg_type);
-      nsfw_mgr_msg_free (l_msg);
-      return TRUE;
+        NSFW_LOGWAR("alloc new msg err]len=%u,org_len=%u,type=%u",
+                    l_msg->msg_len, msg->msg_len, msg->msg_type);
+        nsfw_mgr_msg_free(l_msg);
+        return TRUE;
     }
 
-  max_count = 0;
-  (void) nsfw_set_sock_block (fd, FALSE);
-  from_flag = l_msg->from_mem;
-  u32 l_msg_len = l_msg->msg_len;
-  do
+    max_count = 0;
+    (void) nsfw_set_sock_block(fd, FALSE);
+    from_flag = l_msg->from_mem;
+    u32 l_msg_len = l_msg->msg_len;
+    do
     {
-      off_set += recv_len;
-      recv_len =
-        nsfw_base_recv (fd, (char *) l_msg + off_set, l_msg_len - off_set, 0);
-      if (recv_len <= 0)
+        off_set += recv_len;
+        recv_len =
+            nsfw_base_recv(fd, (char *) l_msg + off_set, l_msg_len - off_set,
+                           0);
+        if (recv_len <= 0)
         {
-          if ((EINTR == errno || EAGAIN == errno)
-              && (max_count < MAX_RECV_COUNT))
+            if ((EINTR == errno || EAGAIN == errno)
+                && (max_count < MAX_RECV_COUNT))
             {
-              recv_len = 0;
-              max_count++;
-              continue;
+                recv_len = 0;
+                max_count++;
+                continue;
             }
 
-          NSFW_LOGERR
-            ("recv error]mgr_fd=%u,recv_len=%d,off_set=%d,errno=%d,"
-             MSGINFO, fd, recv_len, off_set, errno, PRTMSG (msg));
-          l_msg->from_mem = from_flag;
-          nsfw_mgr_msg_free (l_msg);
-          return FALSE;
+            NSFW_LOGERR("recv err]mgr_fd=%u,recv_len=%d,off_set=%d,errno=%d,"
+                        MSGINFO, fd, recv_len, off_set, errno, PRTMSG(msg));
+            l_msg->from_mem = from_flag;
+            nsfw_mgr_msg_free(l_msg);
+            return FALSE;
         }
     }
-  while (recv_len + off_set < (i32) l_msg_len);
-  (void) nsfw_set_sock_block (fd, TRUE);
-  int retVal = MEMCPY_S (l_msg, msg_len, msg, msg_len);
-  if (EOK != retVal)
+    while (recv_len + off_set < (i32) l_msg_len);
+    (void) nsfw_set_sock_block(fd, TRUE);
+    int retVal = memcpy_s(l_msg, msg_len, msg, msg_len);
+    if (EOK != retVal)
     {
-      NSFW_LOGERR ("MEMCPY_S failed] ret=%d", retVal);
-      l_msg->from_mem = from_flag;
-      nsfw_mgr_msg_free (l_msg);
-      return TRUE;
+        NSFW_LOGERR("memcpy_s fail]ret=%d", retVal);
+        l_msg->from_mem = from_flag;
+        nsfw_mgr_msg_free(l_msg);
+        return TRUE;
     }
-  l_msg->from_mem = from_flag;
-  l_msg->msg_len = l_msg_len;
+    l_msg->from_mem = from_flag;
+    l_msg->msg_len = l_msg_len;
 
-  *large_msg = l_msg;
-  NSFW_LOGDBG ("recv large mgr_msg suc]mgr_fd=%u," MSGINFO, fd,
-               PRTMSG (l_msg));
-  return TRUE;
+    *large_msg = l_msg;
+    NSFW_LOGDBG("recv large mgr_msg suc]mgr_fd=%u," MSGINFO, fd,
+                PRTMSG(l_msg));
+    return TRUE;
+}
+
+/*****************************************************************************
+*   Prototype    : nsfw_mgr_get_socket
+*   Description  : try best to return an available dst_socket
+*   Input        : nsfw_mgr_msg* req_msg
+*                  nsfw_mgr_msg* rsp_msg
+                   i32 dst_socket (origin fd, <=0 to lookup or create, >0 to renew)
+*   Output       : None
+*   Return Value : i32
+*   Calls        :
+*   Called By    :
+*****************************************************************************/
+i32 nsfw_mgr_get_socket(nsfw_mgr_msg * req_msg, nsfw_mgr_msg * rsp_msg,
+                        i32 dst_socket)
+{
+    if (dst_socket <= 0)        /* origin fd <= 0, first lookup the eastablished, if none, create a new one */
+    {
+        dst_socket =
+            nsfw_mgr_get_dst_socket(req_msg->dst_proc_type, req_msg->dst_pid);
+        if (dst_socket <= 0)
+        {
+            dst_socket =
+                nsfw_mgr_get_new_socket(req_msg->dst_proc_type,
+                                        req_msg->dst_pid);
+            if (dst_socket <= 0)
+            {
+                NSFW_LOGERR("send msg get dst_socket_err]" MSGINFO,
+                            PRTMSG(req_msg));
+                return -1;
+            }
+        }
+    }
+    else                        /* origin fd is broken probably because the other end just upgraded, delete the old one and re-create */
+    {
+        (void) nsfw_mgr_del_socket(dst_socket);
+        (void) nsfw_mgr_unreg_sock_fun(dst_socket);
+        (void) nsfw_base_close(dst_socket);
+        UNLOCK_MGR_FD(dst_socket)
+            dst_socket =
+            nsfw_mgr_get_new_socket(req_msg->dst_proc_type, req_msg->dst_pid);
+        if (dst_socket <= 0)
+        {
+            NSFW_LOGERR("send msg get dst_socket_err]" MSGINFO,
+                        PRTMSG(req_msg));
+            return -1;
+        }
+    }
+    return dst_socket;
+}
+
+/*****************************************************************************
+*   Prototype    : nsfw_mgr_do_send_and_recv
+*   Description  : do send and recv work
+*   Input        : nsfw_mgr_msg* req_msg
+*                  nsfw_mgr_msg* rsp_msg
+*   Output       : None
+*   Return Value : u8
+*   Calls        :
+*   Called By    :
+*****************************************************************************/
+u8 nsfw_mgr_do_send_and_recv(nsfw_mgr_msg * req_msg, nsfw_mgr_msg * rsp_msg,
+                             i32 dst_socket, i32 retry_times_left)
+{
+    LOCK_MGR_FD(dst_socket)
+        if ((NULL == rsp_msg) && (req_msg->msg_len == sizeof(nsfw_mgr_msg)))
+    {
+        if (FALSE == nsfw_mgr_send_msg_socket(dst_socket, req_msg))
+        {
+            g_mgr_stat.msg_send_failed++;
+            goto ERROR_RETURN;
+        }
+        UNLOCK_MGR_FD(dst_socket) return TRUE;
+    }
+
+    (void) nsfw_mgr_unreg_sock_fun(dst_socket);
+    if (FALSE == nsfw_mgr_send_msg_socket(dst_socket, req_msg))
+    {
+        g_mgr_stat.msg_send_failed++;
+        goto ERROR_RETURN;
+    }
+
+    if (NULL == rsp_msg)
+    {
+        (void) nsfw_mgr_reg_sock_fun(dst_socket, nsfw_mgr_new_msg);
+        UNLOCK_MGR_FD(dst_socket) return TRUE;
+    }
+
+    u16 i;
+    for (i = 0; i < MGR_COM_MAX_DROP_MSG; i++)
+    {
+        if (FALSE == nsfw_mgr_recv_msg_socket(dst_socket, rsp_msg, NULL))
+        {
+            goto ERROR_RETURN;
+        }
+
+        if ((rsp_msg->seq == req_msg->seq)
+            && (rsp_msg->msg_type == req_msg->msg_type + MGR_MSG_RSP_BASE))
+        {
+            break;
+        }
+
+        NSFW_LOGDBG("recv msg forward]" MSGINFO, PRTMSG(rsp_msg));
+        rsp_msg->fw_flag = TRUE;
+        (void) nsfw_mgr_send_msg(rsp_msg);
+    }
+
+    (void) nsfw_mgr_reg_sock_fun(dst_socket, nsfw_mgr_new_msg);
+    if (0 == req_msg->dst_pid)
+    {
+        (void) nsfw_mgr_new_socket(dst_socket, rsp_msg->src_proc_type,
+                                   rsp_msg->src_pid);
+    }
+    UNLOCK_MGR_FD(dst_socket) return TRUE;
+
+  ERROR_RETURN:
+    if (0 >= retry_times_left)
+    {
+        NSFW_LOGERR("send msg err]" MSGINFO, PRTMSG(req_msg));
+        (void) nsfw_mgr_reg_sock_fun(dst_socket, nsfw_mgr_new_msg);
+        UNLOCK_MGR_FD(dst_socket);
+    }
+    else
+    {
+        NSFW_LOGWAR
+            ("origin mgr socket=%d is broken, try re-create, %d times left",
+             dst_socket, retry_times_left);
+        /* NOTE: no need to re-register sock_fun, will UNLOCK in next call of nsfw_mgr_get_socket */
+    }
+    return FALSE;
+
 }
 
 /*****************************************************************************
@@ -910,86 +1112,34 @@ nsfw_mgr_recv_msg_socket (u32 fd, nsfw_mgr_msg * msg,
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_send_req_wait_rsp (nsfw_mgr_msg * req_msg, nsfw_mgr_msg * rsp_msg)
+u8 nsfw_mgr_send_req_wait_rsp(nsfw_mgr_msg * req_msg, nsfw_mgr_msg * rsp_msg)
 {
-  if (NULL == req_msg)
+    if (NULL == req_msg)
     {
-      NSFW_LOGERR ("req msg nul!");
-      return FALSE;
+        NSFW_LOGERR("req msg nul");
+        return FALSE;
     }
 
-  i32 dst_socket =
-    nsfw_mgr_get_dst_socket (req_msg->dst_proc_type, req_msg->dst_pid);
-  if (dst_socket <= 0)
+    i32 dst_socket = 0;
+    i32 retry_times_left = 1;
+    while (retry_times_left >= 0)
     {
-      dst_socket =
-        nsfw_mgr_get_new_socket (req_msg->dst_proc_type, req_msg->dst_pid);
-      if (dst_socket <= 0)
+        dst_socket = nsfw_mgr_get_socket(req_msg, rsp_msg, dst_socket);
+        if (dst_socket <= 0)
         {
-          NSFW_LOGERR ("send msg get dst_socket_error]" MSGINFO,
-                       PRTMSG (req_msg));
-          return FALSE;
+            NSFW_LOGERR("send msg get dst_socket_err]" MSGINFO,
+                        PRTMSG(req_msg));
+            return FALSE;
         }
-    }
-
-  if ((NULL == rsp_msg) && (req_msg->msg_len == sizeof (nsfw_mgr_msg)))
-    {
-      LOCK_MGR_FD (dst_socket)
-        if (FALSE == nsfw_mgr_send_msg_socket (dst_socket, req_msg))
+        u8 ret = nsfw_mgr_do_send_and_recv(req_msg, rsp_msg, dst_socket,
+                                           retry_times_left);
+        if (ret == TRUE)
         {
-          NSFW_LOGERR ("send msg error]" MSGINFO, PRTMSG (req_msg));
-          g_mgr_stat.msg_send_failed++;
-          UNLOCK_MGR_FD (dst_socket) return FALSE;
+            return TRUE;
         }
-      UNLOCK_MGR_FD (dst_socket) return TRUE;
+        --retry_times_left;
     }
-
-  LOCK_MGR_FD (dst_socket);
-  (void) nsfw_mgr_unreg_sock_fun (dst_socket);
-  if (FALSE == nsfw_mgr_send_msg_socket (dst_socket, req_msg))
-    {
-      NSFW_LOGERR ("send msg error]" MSGINFO, PRTMSG (req_msg));
-      g_mgr_stat.msg_send_failed++;
-      (void) nsfw_mgr_reg_sock_fun (dst_socket, nsfw_mgr_new_msg);
-      UNLOCK_MGR_FD (dst_socket);
-      return FALSE;
-    }
-
-  if (NULL == rsp_msg)
-    {
-      (void) nsfw_mgr_reg_sock_fun (dst_socket, nsfw_mgr_new_msg);
-      UNLOCK_MGR_FD (dst_socket) return TRUE;
-    }
-
-  u16 i;
-  for (i = 0; i < MGR_COM_MAX_DROP_MSG; i++)
-    {
-      if (FALSE == nsfw_mgr_recv_msg_socket (dst_socket, rsp_msg, NULL))
-        {
-          NSFW_LOGERR ("recv msg error]" MSGINFO, PRTMSG (req_msg));
-          (void) nsfw_mgr_reg_sock_fun (dst_socket, nsfw_mgr_new_msg);
-          UNLOCK_MGR_FD (dst_socket) return FALSE;
-        }
-
-      if ((rsp_msg->seq == req_msg->seq)
-          && (rsp_msg->msg_type == req_msg->msg_type + MGR_MSG_RSP_BASE))
-        {
-          break;
-        }
-
-      NSFW_LOGINF ("recv msg forward]" MSGINFO, PRTMSG (rsp_msg));
-      rsp_msg->fw_flag = TRUE;
-      (void) nsfw_mgr_send_msg (rsp_msg);
-    }
-
-  (void) nsfw_mgr_reg_sock_fun (dst_socket, nsfw_mgr_new_msg);
-  if (0 == req_msg->dst_pid)
-    {
-      (void) nsfw_mgr_new_socket (dst_socket, rsp_msg->src_proc_type,
-                                  rsp_msg->src_pid);
-    }
-  UNLOCK_MGR_FD (dst_socket) return TRUE;
+    return FALSE;
 }
 
 /*****************************************************************************
@@ -1001,10 +1151,9 @@ nsfw_mgr_send_req_wait_rsp (nsfw_mgr_msg * req_msg, nsfw_mgr_msg * rsp_msg)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_send_msg (nsfw_mgr_msg * msg)
+u8 nsfw_mgr_send_msg(nsfw_mgr_msg * msg)
 {
-  return nsfw_mgr_send_req_wait_rsp (msg, NULL);
+    return nsfw_mgr_send_req_wait_rsp(msg, NULL);
 }
 
 /*****************************************************************************
@@ -1016,79 +1165,77 @@ nsfw_mgr_send_msg (nsfw_mgr_msg * msg)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_msg_in (i32 fd)
+u8 nsfw_mgr_msg_in(i32 fd)
 {
-  u32 i = 0;
-  u8 ret = FALSE;
-  u8 msg_match = FALSE;
-  nsfw_mgr_msg *msg = nsfw_mgr_null_rspmsg_alloc ();
-  nsfw_mgr_msg *large_msg = NULL;
+    u32 i = 0;
+    u8 ret = FALSE;
+    u8 msg_match = FALSE;
+    nsfw_mgr_msg *msg = nsfw_mgr_null_rspmsg_alloc();
+    nsfw_mgr_msg *large_msg = NULL;
 
-  LOCK_MGR_FD (fd) ret = nsfw_mgr_recv_msg_socket (fd, msg, &large_msg);
-  UNLOCK_MGR_FD (fd) if (large_msg != NULL)
+    LOCK_MGR_FD(fd) ret = nsfw_mgr_recv_msg_socket(fd, msg, &large_msg);
+    UNLOCK_MGR_FD(fd) if (large_msg != NULL)
     {
-      nsfw_mgr_msg_free (msg);
-      msg = large_msg;
+        nsfw_mgr_msg_free(msg);
+        msg = large_msg;
     }
 
-  if (FALSE == ret)
+    if (FALSE == ret)
     {
-      nsfw_mgr_msg_free (msg);
-      return FALSE;
+        nsfw_mgr_msg_free(msg);
+        return FALSE;
+    }
+    if (msg->fw_flag != TRUE)
+    {
+        (void) nsfw_mgr_new_socket(fd, msg->src_proc_type, msg->src_pid);
     }
 
-  if (msg->fw_flag != TRUE)
+    if (msg->msg_type < MGR_MSG_MAX)
     {
-      (void) nsfw_mgr_new_socket (fd, msg->src_proc_type, msg->src_pid);
-    }
-
-  if (msg->msg_type < MGR_MSG_MAX)
-    {
-      for (i = 0; i < NSFW_MGRCOM_MAX_PROC_FUN; i++)
+        for (i = 0; i < NSFW_MGRCOM_MAX_PROC_FUN; i++)
         {
-          if (NULL == g_mgr_fun[msg->msg_type][i])
+            if (NULL == g_mgr_fun[msg->msg_type][i])
             {
-              break;
+                break;
             }
 
-          (void) g_mgr_fun[msg->msg_type][i] (msg);
-          msg_match = TRUE;
+            (void) g_mgr_fun[msg->msg_type][i] (msg);
+            msg_match = TRUE;
         }
     }
 
-  if (FALSE != msg_match)
+    if (FALSE != msg_match)
     {
-      nsfw_mgr_msg_free (msg);
-      return TRUE;
+        nsfw_mgr_msg_free(msg);
+        return TRUE;
     }
 
-  if (msg->msg_type < MGR_MSG_RSP_BASE)
+    if (msg->msg_type < MGR_MSG_RSP_BASE)
     {
-      NSFW_LOGERR ("msg match failed! auto rsp]" MSGINFO, PRTMSG (msg));
-      nsfw_mgr_msg *rsp_msg = nsfw_mgr_rsp_msg_alloc (msg);
-      if (NULL != rsp_msg)
+        NSFW_LOGERR("msg match failed! auto rsp]" MSGINFO, PRTMSG(msg));
+        nsfw_mgr_msg *rsp_msg = nsfw_mgr_rsp_msg_alloc(msg);
+        if (NULL != rsp_msg)
         {
-          rsp_msg->resp_code = NSFW_MGR_MSG_TYPE_ERROR;
-          (void) nsfw_mgr_send_msg (rsp_msg);
-          nsfw_mgr_msg_free (rsp_msg);
+            rsp_msg->resp_code = NSFW_MGR_MSG_TYPE_ERROR;
+            (void) nsfw_mgr_send_msg(rsp_msg);
+            nsfw_mgr_msg_free(rsp_msg);
         }
     }
 
-  NSFW_LOGERR ("drop msg]" MSGINFO, PRTMSG (msg));
-  /* fix "Out-of-bounds write" type codex issue */
-  if (msg->msg_type < MGR_MSG_MAX)
+    NSFW_LOGERR("drop msg]" MSGINFO, PRTMSG(msg));
+    /* fix "Out-of-bounds write" */
+    if (msg->msg_type < MGR_MSG_MAX)
     {
-      g_mgr_stat.recv_drop[msg->msg_type]++;
+        g_mgr_stat.recv_drop[msg->msg_type]++;
     }
-  nsfw_mgr_msg_free (msg);
-  return FALSE;
+    nsfw_mgr_msg_free(msg);
+    return FALSE;
 
 }
 
 /*****************************************************************************
 *   Prototype    : nsfw_mgr_new_msg
-*   Description  : when new mgr message receive from socket, this function
+*   Description  : when new mgr message recive from socket, this funciton
                    will call back
 *   Input        : i32 epfd
 *                  i32 fd
@@ -1098,22 +1245,19 @@ nsfw_mgr_msg_in (i32 fd)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-int
-nsfw_mgr_new_msg (i32 epfd, i32 fd, u32 events)
+/*try to get event form all modules */
+int nsfw_mgr_new_msg(i32 epfd, i32 fd, u32 events)
 {
-  lint_lock_1 ();
-  if ((events & EPOLLERR) || (events & EPOLLHUP) || (!(events & EPOLLIN)))
+    if ((events & EPOLLERR) || (events & EPOLLHUP) || (!(events & EPOLLIN)))
     {
-      (void) nsfw_mgr_del_socket (fd);
-      (void) nsfw_mgr_unreg_sock_fun (fd);
-      (void) nsfw_base_close (fd);
-      lint_unlock_1 ();
-      return TRUE;
+        (void) nsfw_mgr_del_socket(fd);
+        (void) nsfw_mgr_unreg_sock_fun(fd);
+        (void) nsfw_base_close(fd);
+        return TRUE;
     }
 
-  (void) nsfw_mgr_msg_in (fd);
-  lint_unlock_1 ();
-  return TRUE;
+    (void) nsfw_mgr_msg_in(fd);
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -1126,11 +1270,11 @@ nsfw_mgr_new_msg (i32 epfd, i32 fd, u32 events)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-int
-nsfw_mgr_com_rereg_fun (u32 timer_type, void *data)
+int nsfw_mgr_com_rereg_fun(u32 timer_type, void *data)
 {
-  (void) nsfw_mgr_reg_sock_fun (timer_type, (nsfw_mgr_sock_fun) data);
-  return TRUE;
+
+    (void) nsfw_mgr_reg_sock_fun(timer_type, (nsfw_mgr_sock_fun) data);
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -1144,18 +1288,18 @@ nsfw_mgr_com_rereg_fun (u32 timer_type, void *data)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-int
-nsfw_mgr_com_socket_error (i32 fd, nsfw_mgr_sock_fun fun, i32 timer)
+int nsfw_mgr_com_socket_error(i32 fd, nsfw_mgr_sock_fun fun, i32 timer)
 {
-  struct timespec time_left = { timer, 0 };
-  nsfw_mgr_unreg_sock_fun (fd);
-  nsfw_timer_reg_timer (fd, (void *) fun, nsfw_mgr_com_rereg_fun, time_left);
-  return TRUE;
+
+    struct timespec time_left = { timer, 0 };
+    nsfw_mgr_unreg_sock_fun(fd);
+    nsfw_timer_reg_timer(fd, (void *) fun, nsfw_mgr_com_rereg_fun, time_left);
+    return TRUE;
 }
 
 /*****************************************************************************
 *   Prototype    : nsfw_mgr_new_connection
-*   Description  : when new mgr connection in, this function will call back
+*   Description  : when new mgr connection in, this funciton will call back
 *   Input        : i32 epfd
 *                  i32 fd
 *                  u32 events
@@ -1164,81 +1308,79 @@ nsfw_mgr_com_socket_error (i32 fd, nsfw_mgr_sock_fun fun, i32 timer)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-int
-nsfw_mgr_new_connection (i32 epfd, i32 fd, u32 events)
+int nsfw_mgr_new_connection(i32 epfd, i32 fd, u32 events)
 {
-  if ((events & EPOLLERR) || (events & EPOLLHUP) || (!(events & EPOLLIN)))
+    if ((events & EPOLLERR) || (events & EPOLLHUP) || (!(events & EPOLLIN)))
     {
-      (void) nsfw_base_close (fd);
-      NSFW_LOGWAR ("listen disconnect!]epfd=%d,listen=%d,event=0x%x", epfd,
-                   fd, events);
-      (void) nsfw_mgr_unreg_sock_fun (fd);
-      i32 listen_fd = nsfw_mgr_get_listen_socket ();
-      if (listen_fd < 0)
+        (void) nsfw_base_close(fd);
+        NSFW_LOGWAR("listen disconnect]epfd=%d,listen=%d,event=0x%x", epfd,
+                    fd, events);
+        (void) nsfw_mgr_unreg_sock_fun(fd);
+        i32 listen_fd = nsfw_mgr_get_listen_socket();
+        if (listen_fd < 0)
         {
-          NSFW_LOGERR
-            ("get listen_fd failed!]epfd=%d,listen_fd=%d,event=0x%x", epfd,
-             fd, events);
-          return FALSE;
+            NSFW_LOGERR("get listen_fd fail]epfd=%d,listen_fd=%d,event=0x%x",
+                        epfd, fd, events);
+            return FALSE;
         }
 
-      (void) nsfw_mgr_reg_sock_fun (listen_fd, nsfw_mgr_new_connection);
-      return TRUE;
+        (void) nsfw_mgr_reg_sock_fun(listen_fd, nsfw_mgr_new_connection);
+        return TRUE;
     }
 
-  struct sockaddr in_addr;
-  socklen_t in_len;
-  int infd;
-  in_len = sizeof in_addr;
+    int infd;
+    struct sockaddr addr;
+    socklen_t len = sizeof(addr);
+    int size, size_len;
+    u8 accept_flag = FALSE;
 
-  int size, size_len;
-  u8 accept_flag = FALSE;
-  while (1)
+    while (1)
     {
-      infd = nsfw_base_accept (fd, &in_addr, &in_len);
-      if (infd == -1)
+        infd = nsfw_base_accept(fd, &addr, &len);
+        if (infd == -1)
         {
-          if (FALSE == accept_flag)
+            if (FALSE == accept_flag)
             {
-              nsfw_mgr_com_socket_error (fd, nsfw_mgr_new_connection, 1);
+                nsfw_mgr_com_socket_error(fd, nsfw_mgr_new_connection, 1);
             }
-          break;
+            break;
         }
 
-      if (-1 == nsfw_set_close_on_exec (infd))
+        /* close on exec */
+        if (-1 == nsfw_set_close_on_exec(infd))
         {
-          (void) nsfw_base_close (infd);
-          NSFW_LOGERR ("set exec err]fd=%d, errno=%d", infd, errno);
-          break;
+            (void) nsfw_base_close(infd);
+            NSFW_LOGERR("set exec err]fd=%d, errno=%d", infd, errno);
+            break;
         }
 
-      size = MAX_RECV_BUF_DEF;
-      size_len = sizeof (size);
-      if (0 >
-          nsfw_base_setsockopt (infd, SOL_SOCKET, SO_RCVBUF, (void *) &size,
-                                (socklen_t) size_len))
+        size = MAX_RECV_BUF_DEF;
+        size_len = sizeof(size);
+        if (0 >
+            nsfw_base_setsockopt(infd, SOL_SOCKET, SO_RCVBUF, (void *) &size,
+                                 (socklen_t) size_len))
         {
-          NSFW_LOGERR ("set socket opt err!]error=%d", errno);
+            NSFW_LOGERR("set socket opt err]error=%d", errno);
         }
 
-      if (0 >
-          nsfw_base_setsockopt (infd, SOL_SOCKET, SO_SNDBUF, (void *) &size,
-                                (socklen_t) size_len))
+        if (0 >
+            nsfw_base_setsockopt(infd, SOL_SOCKET, SO_SNDBUF, (void *) &size,
+                                 (socklen_t) size_len))
         {
-          NSFW_LOGERR ("set socket opt err!]error=%d", errno);
+            NSFW_LOGERR("set socket opt err]error=%d", errno);
         }
 
-      (void) nsfw_mgr_reg_sock_fun (infd, nsfw_mgr_new_msg);
-      NSFW_LOGDBG ("accept_flag new fd]new_mgr_fd=%d", infd);
-      accept_flag = TRUE;
+        (void) nsfw_mgr_reg_sock_fun(infd, nsfw_mgr_new_msg);
+        NSFW_LOGDBG("accept_flag new fd]new_mgr_fd=%d", infd);
+        accept_flag = TRUE;
     }
 
-  return TRUE;
+    return TRUE;
 }
 
 /*****************************************************************************
 *   Prototype    : nsfw_set_sock_block
-*   Description  : set fd block or not for epoll thread
+*   Description  : set fd blok or not for epoll thread
 *   Input        : i32 sock
 *                  u8 flag
 *   Output       : None
@@ -1246,45 +1388,45 @@ nsfw_mgr_new_connection (i32 epfd, i32 fd, u32 events)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-i32
-nsfw_set_sock_block (i32 sock, u8 flag)
+i32 nsfw_set_sock_block(i32 sock, u8 flag)
 {
-  i32 flags;
-  flags = nsfw_base_fcntl (sock, F_GETFL, 0);
-  if (flags < 0)
+    i32 flags;
+    flags = nsfw_base_fcntl(sock, F_GETFL, 0);
+    if (flags < 0)
     {
-      NSFW_LOGERR ("fcntl err]new_mgr_fd=%d,errno=%d", sock, errno);
-      return -1;
+        NSFW_LOGERR("fcntl err]new_mgr_fd=%d,errno=%d", sock, errno);
+        return -1;
     }
 
-  if (TRUE == flag)
+    if (TRUE == flag)
     {
-      flags = flags | O_NONBLOCK;
+        flags = flags | O_NONBLOCK;
     }
-  else
+    else
     {
-      flags = flags & (~O_NONBLOCK);
-      struct timeval tv;
-      tv.tv_sec = MGR_COM_RECV_TIMEOUT;
-      tv.tv_usec = 0;
-      if (nsfw_base_setsockopt
-          (sock, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof tv))
+        flags = flags & (~O_NONBLOCK);
+        struct timeval tv;
+        tv.tv_sec = MGR_COM_RECV_TIMEOUT;
+        tv.tv_usec = 0;
+        if (nsfw_base_setsockopt
+            (sock, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof tv))
         {
-          NSFW_LOGERR ("setsockopt socket err]mgr_fd=%d", sock);
-          return -1;
+            NSFW_LOGERR("setsockopt socket err]mgr_fd=%d", sock);
+            return -1;
         }
     }
 
-  if (nsfw_base_fcntl (sock, F_SETFL, flags) < 0)
+    if (nsfw_base_fcntl(sock, F_SETFL, flags) < 0)
     {
-      NSFW_LOGERR ("fcntl err]new_mgr_fd=%d,errno=%d,flags=%d", sock, errno,
-                   flags);
-      return -1;
+        NSFW_LOGERR("fcntl err]new_mgr_fd=%d,errno=%d,flags=%d", sock, errno,
+                    flags);
+        return -1;
     }
 
-  return 0;
+    return 0;
 }
 
+/* close on exec */
 /*****************************************************************************
 *   Prototype    : nsfw_set_close_on_exec
 *   Description  : close on exec set
@@ -1294,26 +1436,25 @@ nsfw_set_sock_block (i32 sock, u8 flag)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-i32
-nsfw_set_close_on_exec (i32 sock)
+i32 nsfw_set_close_on_exec(i32 sock)
 {
-  i32 flags;
-  flags = nsfw_base_fcntl (sock, F_GETFD, 0);
-  if (flags < 0)
+    i32 flags;
+    flags = nsfw_base_fcntl(sock, F_GETFD, 0);
+    if (flags < 0)
     {
-      NSFW_LOGERR ("fcntl err]fd=%d,errno=%d", sock, errno);
-      return -1;
+        NSFW_LOGERR("fcntl err]fd=%d,errno=%d", sock, errno);
+        return -1;
     }
 
-  flags |= FD_CLOEXEC;
+    flags |= FD_CLOEXEC;
 
-  if (nsfw_base_fcntl (sock, F_SETFD, flags) < 0)
+    if (nsfw_base_fcntl(sock, F_SETFD, flags) < 0)
     {
-      NSFW_LOGERR ("fcntl err]fd=%d,errno=%d,flags=%d", sock, errno, flags);
-      return -1;
+        NSFW_LOGERR("fcntl err]fd=%d,errno=%d,flags=%d", sock, errno, flags);
+        return -1;
     }
 
-  return 0;
+    return 0;
 }
 
 /*****************************************************************************
@@ -1325,29 +1466,35 @@ nsfw_set_close_on_exec (i32 sock)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_add_sock_to_ep (i32 fd)
+u8 nsfw_add_sock_to_ep(i32 fd)
 {
-  struct epoll_event event;
-  event.data.fd = fd;
-  event.events = EPOLLIN;
-  if (g_ep_proc.epfd == 0)
+    struct epoll_event event;
+    event.data.fd = fd;
+    event.events = EPOLLIN;
+    if (g_ep_proc.epfd == 0)
     {
-      return TRUE;
+        return TRUE;
     }
 
-  (void) nsfw_set_sock_block (fd, TRUE);
+    (void) nsfw_set_sock_block(fd, TRUE);
 
-  if (0 > nsfw_base_epoll_ctl (g_ep_proc.epfd, EPOLL_CTL_ADD, fd, &event))
+    if (0 > nsfw_base_epoll_ctl(g_ep_proc.epfd, EPOLL_CTL_ADD, fd, &event))
     {
-      NSFW_LOGINF
-        ("add sock to ep thread failed]mgr_fd=%d,errno=%d,epfd=%d", fd,
-         errno, g_ep_proc.epfd);
-      return FALSE;
+        /*It is possible that multi-threads operate EPOLL_ADD at the same time,
+         *we allow this case, and return TRUE for it when errno==EEXIST*/
+        if (EEXIST == errno)
+        {
+            NSFW_LOGDBG
+                ("add sock to ep thread but exist already, return TRUE directly]mgr_fd=%d,epfd=%d",
+                 fd, g_ep_proc.epfd) return TRUE;
+        }
+        NSFW_LOGINF("add sock to ep thread fail]mgr_fd=%d,errno=%d,epfd=%d",
+                    fd, errno, g_ep_proc.epfd);
+        return FALSE;
     }
 
-  NSFW_LOGDBG ("add sock to ep thread]mgr_fd=%d,epfd=%d", fd,
-               g_ep_proc.epfd) return TRUE;
+    NSFW_LOGDBG("add sock to ep thread]mgr_fd=%d,epfd=%d", fd,
+                g_ep_proc.epfd) return TRUE;
 }
 
 /*****************************************************************************
@@ -1359,29 +1506,28 @@ nsfw_add_sock_to_ep (i32 fd)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_rmv_sock_from_ep (i32 fd)
+u8 nsfw_rmv_sock_from_ep(i32 fd)
 {
-  struct epoll_event event;
-  event.data.fd = fd;
-  event.events = EPOLLIN;
-  if (g_ep_proc.epfd == 0)
+    struct epoll_event event;
+    event.data.fd = fd;
+    event.events = EPOLLIN;
+    if (g_ep_proc.epfd == 0)
     {
-      return TRUE;
+        //NSFW_LOGINF("rmv sock to ep thread before start]mgr_fd=%d",fd);
+        return TRUE;
     }
 
-  (void) nsfw_set_sock_block (fd, FALSE);
+    (void) nsfw_set_sock_block(fd, FALSE);
 
-  if (0 > nsfw_base_epoll_ctl (g_ep_proc.epfd, EPOLL_CTL_DEL, fd, &event))
+    if (0 > nsfw_base_epoll_ctl(g_ep_proc.epfd, EPOLL_CTL_DEL, fd, &event))
     {
-      NSFW_LOGINF
-        ("rmv sock to ep thread failed] mgr_fd=%d,errno=%d,epfd=%d", fd,
-         errno, g_ep_proc.epfd);
-      return FALSE;
+        NSFW_LOGINF("rmv sock to ep thread fail]mgr_fd=%d,errno=%d,epfd=%d",
+                    fd, errno, g_ep_proc.epfd);
+        return FALSE;
     }
 
-  NSFW_LOGDBG ("rmv sock to ep thread] mgr_fd=%d,epfd=%d", fd,
-               g_ep_proc.epfd) return TRUE;
+    NSFW_LOGDBG("rmv sock to ep thread]mgr_fd=%d,epfd=%d", fd,
+                g_ep_proc.epfd) return TRUE;
 }
 
 /*****************************************************************************
@@ -1395,33 +1541,28 @@ nsfw_rmv_sock_from_ep (i32 fd)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_reg_sock_fun (i32 fd, nsfw_mgr_sock_fun fun)
+/*try to get event form all modules */
+u8 nsfw_mgr_reg_sock_fun(i32 fd, nsfw_mgr_sock_fun fun)
 {
-  lint_lock_1 ();
-  if ((fd >= (i32) NSFW_MGR_FD_MAX) || (fd < 0) || NULL == fun)
+    if ((fd >= (i32) NSFW_MGR_FD_MAX) || (fd < 0) || NULL == fun)
     {
-      NSFW_LOGINF ("reg sock fun error!] mgr_fd=%d,fun=%p", fd, fun);
-      lint_unlock_1 ();
-      return FALSE;
+        NSFW_LOGINF("reg sock fun error]mgr_fd=%d,fun=%p", fd, fun);
+        return FALSE;
     }
 
-  if ((g_ep_proc.ep_fun) && (NULL == g_ep_proc.ep_fun[fd]))
+    if ((g_ep_proc.ep_fun) && (NULL == g_ep_proc.ep_fun[fd]))
     {
-      g_ep_proc.ep_fun[fd] = fun;
-      if (FALSE == nsfw_add_sock_to_ep (fd))
+        g_ep_proc.ep_fun[fd] = fun;
+        if (FALSE == nsfw_add_sock_to_ep(fd))
         {
-          g_ep_proc.ep_fun[fd] = NULL;
-          lint_unlock_1 ();
-          return FALSE;
+            g_ep_proc.ep_fun[fd] = NULL;
+            return FALSE;
         }
 
-      NSFW_LOGDBG ("reg sock fun] mgr_fd=%d,fun=%p", fd, fun);
-      lint_unlock_1 ();
-      return TRUE;
+        NSFW_LOGDBG("reg sock fun]mgr_fd=%d,fun=%p", fd, fun);
+        return TRUE;
     }
-  lint_unlock_1 ();
-  return FALSE;
+    return FALSE;
 }
 
 /*****************************************************************************
@@ -1433,28 +1574,24 @@ nsfw_mgr_reg_sock_fun (i32 fd, nsfw_mgr_sock_fun fun)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-void
-nsfw_mgr_unreg_sock_fun (i32 fd)
+/*try to get event form all modules */
+void nsfw_mgr_unreg_sock_fun(i32 fd)
 {
-  lint_lock_1 ();
-  if (fd >= (i32) NSFW_MGR_FD_MAX)
+    if (fd >= (i32) NSFW_MGR_FD_MAX)
     {
-      NSFW_LOGINF ("unreg sock fun failed!] mgr_fd=%d", fd);
-      lint_unlock_1 ();
-      return;
+        NSFW_LOGINF("unreg sock fun fail]mgr_fd=%d", fd);
+        return;
     }
 
-  if ((g_ep_proc.ep_fun) && (NULL != g_ep_proc.ep_fun[fd]))
+    if ((g_ep_proc.ep_fun) && (NULL != g_ep_proc.ep_fun[fd]))
     {
-      g_ep_proc.ep_fun[fd] = NULL;
-      (void) nsfw_rmv_sock_from_ep (fd);
-      NSFW_LOGDBG ("unreg sock fun] mgr_fd=%d", fd);
-      lint_unlock_1 ();
-      return;
+        g_ep_proc.ep_fun[fd] = NULL;
+        (void) nsfw_rmv_sock_from_ep(fd);
+        NSFW_LOGDBG("unreg sock fun]mgr_fd=%d", fd);
+        return;
     }
 
-  lint_unlock_1 ();
-  return;
+    return;
 }
 
 /*****************************************************************************
@@ -1468,22 +1605,21 @@ nsfw_mgr_unreg_sock_fun (i32 fd)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-NSTACK_STATIC inline u8
-nsfw_sock_fun_callback (i32 epfd, i32 fd, u32 events)
+NSTACK_STATIC inline u8 nsfw_sock_fun_callback(i32 epfd, i32 fd, u32 events)
 {
-  if ((fd < (i32) NSFW_MGR_FD_MAX)
-      && (g_ep_proc.ep_fun) && (NULL != g_ep_proc.ep_fun[fd]))
+    if ((fd < (i32) NSFW_MGR_FD_MAX)
+        && (g_ep_proc.ep_fun) && (NULL != g_ep_proc.ep_fun[fd]))
     {
-      (void) g_ep_proc.ep_fun[fd] (epfd, fd, events);
-      return TRUE;
+        (void) g_ep_proc.ep_fun[fd] (epfd, fd, events);
+        return TRUE;
     }
 
-  return FALSE;
+    return FALSE;
 }
 
 /*****************************************************************************
-*   Prototype    : nsfw_sock_add_to_ep
-*   Description  : add all event process function has ben reg to the epoll
+*   Prototype    : nsfw_add_prestored_sock_to_ep
+*   Description  : add all the socks (whose process function has ben reg) to the epoll
                    thread when thread start
 *   Input        : i32 epfd
 *   Output       : None
@@ -1491,21 +1627,37 @@ nsfw_sock_fun_callback (i32 epfd, i32 fd, u32 events)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_sock_add_to_ep (i32 epfd)
+u8 nsfw_add_prestored_sock_to_ep()
 {
-  u32 i;
+    u32 i;
+    u8 ret;
 
-  for (i = 0; i < NSFW_MGR_FD_MAX; i++)
+    if (NULL == g_ep_proc.ep_fun)
     {
-      if ((g_ep_proc.ep_fun) && (NULL == g_ep_proc.ep_fun[i]))
-        {
-          continue;
-        }
-      (void) nsfw_add_sock_to_ep (i);
+        NSFW_LOGERR("g_ep_proc.ep_fun should not be NULL at this time");
+        return FALSE;
     }
 
-  return TRUE;
+    for (i = 0; i < NSFW_MGR_FD_MAX; i++)
+    {
+        if (NULL == g_ep_proc.ep_fun[i])
+        {
+            continue;
+        }
+
+        /*add return value check */
+        ret = nsfw_add_sock_to_ep(i);
+        if (FALSE == ret)
+        {
+            /*here, we add some fd(which belongs to other module and prestore to g_ep_proc) to ep .
+               must add success. if add fail, stack init should end up */
+            NSFW_LOGERR("nsfw_add_sock_to_ep fail]epfd=%d,i=%u",
+                        g_ep_proc.epfd, i);
+            return FALSE;
+        }
+    }
+
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -1517,19 +1669,18 @@ nsfw_sock_add_to_ep (i32 epfd)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_com_start ()
+u8 nsfw_mgr_com_start()
 {
-  i32 listen_fd = nsfw_mgr_get_listen_socket ();
-  if (listen_fd < 0)
+    i32 listern_fd = nsfw_mgr_get_listen_socket();
+    if (listern_fd < 0)
     {
-      NSFW_LOGERR ("get listen_fd failed!");
-      return FALSE;
+        NSFW_LOGERR("get listern_fd fail");
+        return FALSE;
     }
 
-  NSFW_LOGINF ("start mgr_com module!] listen_fd=%d", listen_fd);
-  (void) nsfw_mgr_reg_sock_fun (listen_fd, nsfw_mgr_new_connection);
-  return TRUE;
+    NSFW_LOGINF("start mgr_com module]listern_fd=%d", listern_fd);
+    (void) nsfw_mgr_reg_sock_fun(listern_fd, nsfw_mgr_new_connection);
+    return TRUE;
 }
 
 /*****************************************************************************
@@ -1541,23 +1692,27 @@ nsfw_mgr_com_start ()
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_com_start_local (u8 proc_type)
+u8 nsfw_mgr_com_start_local(u8 proc_type)
 {
-  int fd[2];
-  if ((socketpair (AF_UNIX, SOCK_STREAM, 0, fd)) < 0)
+    int fd[2];
+    if ((socketpair(AF_UNIX, SOCK_STREAM, 0, fd)) < 0)
     {
-      NSFW_LOGERR ("create socket err] type=%u,errno=%d", proc_type, errno);
-      return FALSE;
+        NSFW_LOGERR("create socket err]type=%u,errno=%d", proc_type, errno);
+        return FALSE;
     }
 
-  (void) nsfw_mgr_new_socket (fd[0], proc_type, get_sys_pid ());
-  (void) nsfw_mgr_new_socket (fd[1], proc_type, get_sys_pid ());
-  (void) nsfw_mgr_reg_sock_fun (fd[0], nsfw_mgr_new_msg);
-  (void) nsfw_mgr_reg_sock_fun (fd[1], nsfw_mgr_new_msg);
-  NSFW_LOGINF ("create local socket] fd0=%d,fd1=%d", fd[0], fd[1]);
-  return TRUE;
+    (void) nsfw_mgr_new_socket(fd[0], proc_type, get_sys_pid());
+    (void) nsfw_mgr_new_socket(fd[1], proc_type, get_sys_pid());
+    (void) nsfw_mgr_reg_sock_fun(fd[0], nsfw_mgr_new_msg);
+    (void) nsfw_mgr_reg_sock_fun(fd[1], nsfw_mgr_new_msg);
+    if (proc_type != NSFW_PROC_CTRL)
+    {
+        NSFW_LOGINF("create local socket]fd0=%d,fd1=%d", fd[0], fd[1]);
+    }
+    return TRUE;
 }
+
+/*try to get event form all modules */
 
 /*****************************************************************************
 *   Prototype    : nsfw_mgr_listen_thread
@@ -1568,115 +1723,40 @@ nsfw_mgr_com_start_local (u8 proc_type)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-void *
-nsfw_mgr_listen_thread (void *arg)
+void *nsfw_mgr_listen_thread(void *arg)
 {
-  i32 epfd = 0;
-  //i32 listen_socket = 0;
-
-  lint_lock_1 ();
 #define MAXEVENTS 10
-  epfd = nsfw_base_epoll_create (10);
+    struct epoll_event events[MAXEVENTS];
 
-  struct epoll_event events[MAXEVENTS];
-  if (EOK != MEMSET_S (events, sizeof (events), 0, sizeof (events)))
+    i32 epfd = g_ep_proc.epfd;
+
+    /* Init log suppression for this thread */
+    if (NULL == init_sup_table(LOG_SUP_TABLE_SIZE_FOR_MGR_COM_THREAD))
     {
-      NSFW_LOGERR ("MEMSET_S failed!]epfd=%d", epfd);
-      lint_unlock_1 ();
-      return NULL;
+        NSFW_LOGWAR("log suppression init failed in thread: %s",
+                    NSFW_MGRCOM_THREAD);
     }
 
-  g_ep_proc.epfd = epfd;
-  g_ep_proc.hbt_count = 0;
-  (void) nsfw_sock_add_to_ep (epfd);
-  lint_unlock_1 ();
-  while (1)
+    while (1)
     {
-      lint_lock_1 ();
-      int n, i;
-      n = nsfw_base_epoll_wait (epfd, events, MAXEVENTS, -1);
-      for (i = 0; i < n; i++)
+        int n, i;
+        n = nsfw_base_epoll_wait(epfd, events, MAXEVENTS, -1);
+        for (i = 0; i < n; i++)
         {
-          if (TRUE ==
-              nsfw_sock_fun_callback (epfd, events[i].data.fd,
-                                      events[i].events))
+            if (TRUE ==
+                nsfw_sock_fun_callback(epfd, events[i].data.fd,
+                                       events[i].events))
             {
-              g_ep_proc.hbt_count = 0;
-              continue;
+                g_ep_proc.hbt_count = 0;        /*, we know here has multi-thread case, but we allow it */
+                continue;
             }
 
-          NSFW_LOGERR ("error event recv] fd=%d,event=%d",
-                       events[i].data.fd, events[i].events);
+            NSFW_LOGERR("error event recv]fd=%d,event=%u", events[i].data.fd,
+                        events[i].events);
         }
-      lint_unlock_1 ();
+
     }
 
-}
-
-NSTACK_STATIC inline void
-get_thread_policy (pthread_attr_t * attr)
-{
-  int policy;
-  int rs = pthread_attr_getschedpolicy (attr, &policy);
-  if (rs != 0)
-    {
-      NSFW_LOGERR ("pthread_attr_getschedpolicy failed");
-      return;
-    }
-  switch (policy)
-    {
-    case SCHED_FIFO:
-      NSFW_LOGINF ("policy= SCHED_FIFO");
-      break;
-    case SCHED_RR:
-      NSFW_LOGINF ("policy= SCHED_RR");
-      break;
-    case SCHED_OTHER:
-      NSFW_LOGINF ("policy=SCHED_OTHER");
-      break;
-    default:
-      NSFW_LOGINF ("policy=UNKNOWN");
-      break;
-    }
-
-  return;
-}
-
-NSTACK_STATIC inline void
-get_thread_priority (pthread_attr_t * attr)
-{
-  struct sched_param param;
-  int rs = pthread_attr_getschedparam (attr, &param);
-  if (rs != 0)
-    {
-      NSFW_LOGERR ("pthread_attr_getschedparam failed");
-      return;
-    }
-
-  NSFW_LOGINF ("get thread priority] pri=%d", param.sched_priority);
-}
-
-/* support thread priority configuration */
-void
-set_thread_attr (pthread_attr_t * pattr, int stacksize, int pri, int policy)
-{
-  struct sched_param param;
-  (void) pthread_attr_init (pattr);
-
-  if (stacksize > 0)
-    {
-      (void) pthread_attr_setstacksize (pattr, stacksize);
-    }
-
-  param.sched_priority = pri;
-  if (SCHED_OTHER != policy)
-    {
-      (void) pthread_attr_setschedpolicy (pattr, policy);
-      (void) pthread_attr_setschedparam (pattr, &param);
-      (void) pthread_attr_setinheritsched (pattr, PTHREAD_EXPLICIT_SCHED);
-    }
-  get_thread_policy (pattr);
-  get_thread_priority (pattr);
 }
 
 /*****************************************************************************
@@ -1688,66 +1768,71 @@ set_thread_attr (pthread_attr_t * pattr, int stacksize, int pri, int policy)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-u8
-nsfw_mgr_ep_start ()
+u8 nsfw_mgr_ep_start()
 {
-  /* heart beat thread should have the same priority with the tcpip thread */
-  pthread_attr_t attr;
-  pthread_attr_t *pattr = NULL;
+    pthread_attr_t *pattr = NULL;
 
-  if (g_thread_policy != SCHED_OTHER)
+    /* move this code snippet from nsfw_mgr_listen_thread to here,
+     * to avoid multi-thread problem when calling nsfw_add_prestored_sock_to_ep in nsfw_mgr_listen_thread*/
+    g_ep_proc.epfd = nsfw_base_epoll_create(10);
+    if (g_ep_proc.epfd <= 0)
     {
-      set_thread_attr (&attr, 0, g_thread_pri, g_thread_policy);
-      pattr = &attr;
+        NSFW_LOGERR("epoll_create fail]epfd=%d,errno=%d", g_ep_proc.epfd,
+                    errno);
+        return FALSE;
+    }
+    g_ep_proc.hbt_count = 0;
+
+    if (FALSE == nsfw_add_prestored_sock_to_ep())
+    {
+        return FALSE;
     }
 
-  if (pthread_create
-      (&g_ep_proc.ep_thread, pattr, nsfw_mgr_listen_thread, NULL))
+    if (pthread_create
+        (&g_ep_proc.ep_thread, pattr, nsfw_mgr_listen_thread, NULL))
     {
-      return FALSE;
+        return FALSE;
     }
 
-  NSFW_LOGINF ("start thread] id=%d", g_ep_proc.ep_thread);
+    NSFW_LOGINF("start thread]id=%d", g_ep_proc.ep_thread);
 
-  if (pthread_setname_np (g_ep_proc.ep_thread, NSFW_MGRCOM_THREAD))
+    if (pthread_setname_np(g_ep_proc.ep_thread, NSFW_MGRCOM_THREAD))
     {
-      return TRUE;
+        return TRUE;
     }
-  (void) nsfw_reg_trace_thread (g_ep_proc.ep_thread);
-  return TRUE;
+    (void) nsfw_reg_trace_thread(g_ep_proc.ep_thread);
+    return TRUE;
 }
 
-int
-nsfw_mgr_com_chk_hbt (int v_add)
+int nsfw_mgr_com_chk_hbt(int v_add)
 {
-  int ret = g_ep_proc.hbt_count;
-  g_ep_proc.hbt_count += v_add;
-  return ret;
+    int ret = g_ep_proc.hbt_count;
+    g_ep_proc.hbt_count += v_add;
+    return ret;
 }
 
 /*****************************************************************************
 *   Prototype    : nsfw_mgr_comm_fd_destroy
-*   Description  : free the memory
+*   Description  : free the memeory
 *   Input        :
 *   Output       : None
 *   Return Value : int
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-void
-nsfw_mgr_comm_fd_destroy ()
+void nsfw_mgr_comm_fd_destroy()
 {
-  if (g_ep_proc.ep_fun)
+    if (g_ep_proc.ep_fun)
     {
-      free (g_ep_proc.ep_fun);
-      g_ep_proc.ep_fun = NULL;
+        free(g_ep_proc.ep_fun);
+        g_ep_proc.ep_fun = NULL;
     }
-  if (g_mgr_socket_map.sock)
+    if (g_mgr_sockt_map.sock)
     {
-      free (g_mgr_socket_map.sock);
-      g_mgr_socket_map.sock = NULL;
+        free(g_mgr_sockt_map.sock);
+        g_mgr_sockt_map.sock = NULL;
     }
-  return;
+    return;
 }
 
 /*****************************************************************************
@@ -1759,115 +1844,91 @@ nsfw_mgr_comm_fd_destroy ()
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-int
-nsfw_mgr_comm_fd_init (u32 proc_type)
+int nsfw_mgr_comm_fd_init(u32 proc_type)
 {
-  /*only app need to do this */
-  if ((g_mgr_socket_map.sock) && (g_ep_proc.ep_fun))
+    /*distributed log collect, RANCU multi-nodes senario, nstack fd is limited to 1024,
+       this leads to DLOG SERVER container can't accept new connection, log can't be record normally.
+       maxfd limit to 60k begin */
+    /*only app need to do this */
+    errno_t err_ret = -1;
+
+    if ((g_mgr_sockt_map.sock) && (g_ep_proc.ep_fun))
     {
-      return 0;
+        return 0;
     }
-  if (NSFW_PROC_APP == proc_type)
+    if (NSFW_PROC_APP == proc_type)
     {
-      long sysfdmax = 0;
-      sysfdmax = sysconf (_SC_OPEN_MAX);
-      NSFW_LOGINF ("] sys max open files=%d", sysfdmax);
-      if (sysfdmax > 0)
+        long sysfdmax = 0;
+        sysfdmax = sysconf(_SC_OPEN_MAX);
+        NSFW_LOGINF("sys max open files]fds=%ld", sysfdmax);
+        if (sysfdmax > 0)
         {
-          NSFW_MGR_FD_MAX =
-            (int) ((sysfdmax <=
-                    NSFW_MGRCOM_MAX_SOCKET *
-                    60) ? sysfdmax : NSFW_MGRCOM_MAX_SOCKET * 60);
+            NSFW_MGR_FD_MAX =
+                (int) ((sysfdmax <=
+                        NSFW_MGRCOM_MAX_SOCKET *
+                        60) ? sysfdmax : NSFW_MGRCOM_MAX_SOCKET * 60);
         }
-      else
+        else
         {
-          NSFW_LOGERR ("get sys max open file fail");
-          NSFW_MGR_FD_MAX = NSFW_MGRCOM_MAX_SOCKET;
+            NSFW_LOGERR("get sys max open file fail");
+            NSFW_MGR_FD_MAX = NSFW_MGRCOM_MAX_SOCKET;
         }
     }
-  NSFW_LOGINF ("] final max fd=%d", NSFW_MGR_FD_MAX);
-  if (!g_mgr_socket_map.sock)
+    /* distributed log collect, RANCU multi-nodes senario, nstack fd is limited to 1024,
+       this leads to DLOG SERVER container can't accept new connection, log can't be record normally.
+       maxfd limit to 60k end */
+    if (proc_type != NSFW_PROC_CTRL)
     {
-      g_mgr_socket_map.sock =
-        (nsfw_mgr_sock_info *) malloc (sizeof (nsfw_mgr_sock_info) *
-                                       NSFW_MGR_FD_MAX);
-      if (NULL == g_mgr_socket_map.sock)
+        NSFW_LOGINF("final]max fd=%d", NSFW_MGR_FD_MAX);
+    }
+
+    if (!g_mgr_sockt_map.sock)
+    {
+        g_mgr_sockt_map.sock =
+            (nsfw_mgr_sock_info *) malloc(sizeof(nsfw_mgr_sock_info) *
+                                          NSFW_MGR_FD_MAX);
+        if (NULL == g_mgr_sockt_map.sock)
         {
-          NSFW_LOGERR ("malloc fail] length=%d",
-                       sizeof (nsfw_mgr_sock_info) * NSFW_MGR_FD_MAX);
-          return -1;
+            NSFW_LOGERR("malloc fail]length=%d",
+                        sizeof(nsfw_mgr_sock_info) * NSFW_MGR_FD_MAX);
+            return -1;
         }
-      (void) MEMSET_S (g_mgr_socket_map.sock,
-                       sizeof (nsfw_mgr_sock_info) * NSFW_MGR_FD_MAX, 0,
-                       sizeof (nsfw_mgr_sock_info) * NSFW_MGR_FD_MAX);
-    }
-  if (!g_ep_proc.ep_fun)
-    {
-      g_ep_proc.ep_fun =
-        (nsfw_mgr_sock_fun *) malloc (sizeof (nsfw_mgr_sock_fun) *
-                                      NSFW_MGR_FD_MAX);
-      if (NULL == g_ep_proc.ep_fun)
+        err_ret =
+            memset_s(g_mgr_sockt_map.sock,
+                     sizeof(nsfw_mgr_sock_info) * NSFW_MGR_FD_MAX, 0,
+                     sizeof(nsfw_mgr_sock_info) * NSFW_MGR_FD_MAX);
+        if (EOK != err_ret)
         {
-          NSFW_LOGERR ("malloc fail] length=%d ",
-                       sizeof (nsfw_mgr_sock_fun) * NSFW_MGR_FD_MAX);
-          return -1;
-        }
-      (void) MEMSET_S (g_ep_proc.ep_fun,
-                       sizeof (nsfw_mgr_sock_fun) * NSFW_MGR_FD_MAX, 0,
-                       sizeof (nsfw_mgr_sock_fun) * NSFW_MGR_FD_MAX);
-    }
-  return 0;
-}
-
-/*****************************************************************************
-*   Prototype    : nsfw_mgr_com_mkdir_domainpath
-*   Description  : check whether the domain path exist.if not exist, create it.
-*   Input        : char *pathname
-*   Output       : None
-*   Return Value : void
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-void
-nsfw_mgr_com_mkdir_domainpath (char *pathname)
-{
-  char dirname[NSFW_MGRCOM_PATH_LEN] = { 0 };
-  int i, len;
-
-  if (NULL == pathname)
-    {
-      NSFW_LOGERR ("the pathname is null.");
-      return;
-    }
-
-  strncpy (dirname, pathname, NSFW_MGRCOM_PATH_LEN - 1);
-  len = strlen (dirname);
-  if (dirname[len - 1] != '/')
-    strncat (dirname, "/", 2);
-
-  if (access (dirname, F_OK) == 0)
-    return;
-
-  len = strlen (dirname);
-
-  for (i = 1; i < len; i++)
-    {
-      if (dirname[i] == '/')
-        {
-          dirname[i] = 0;
-          if (access (dirname, F_OK) != 0)
-            {
-              if (mkdir (dirname, 0755) == -1)
-                {
-                  NSFW_LOGERR ("mkdir:%s error", dirname);
-                  return;
-                }
-            }
-          dirname[i] = '/';
+            NSFW_LOGERR("memset_s fail]err_ret=%d", err_ret);
+            goto error;
         }
     }
 
-  return;
+    if (!g_ep_proc.ep_fun)
+    {
+        g_ep_proc.ep_fun =
+            (nsfw_mgr_sock_fun *) malloc(sizeof(nsfw_mgr_sock_fun) *
+                                         NSFW_MGR_FD_MAX);
+        if (NULL == g_ep_proc.ep_fun)
+        {
+            NSFW_LOGERR("malloc fail] length=%d ",
+                        sizeof(nsfw_mgr_sock_fun) * NSFW_MGR_FD_MAX);
+            goto error;
+        }
+        err_ret =
+            memset_s(g_ep_proc.ep_fun,
+                     sizeof(nsfw_mgr_sock_fun) * NSFW_MGR_FD_MAX, 0,
+                     sizeof(nsfw_mgr_sock_fun) * NSFW_MGR_FD_MAX);
+        if (EOK != err_ret)
+        {
+            NSFW_LOGERR("memset_s fail]err_ret=%d", err_ret);
+            goto error;
+        }
+    }
+    return 0;
+  error:
+    nsfw_mgr_comm_fd_destroy();
+    return -1;
 }
 
 /*****************************************************************************
@@ -1879,129 +1940,155 @@ nsfw_mgr_com_mkdir_domainpath (char *pathname)
 *   Calls        :
 *   Called By    :
 *****************************************************************************/
-int nsfw_mgr_com_module_init (void *param);
-int
-nsfw_mgr_com_module_init (void *param)
+/*try to get event form all modules */
+int nsfw_mgr_com_module_init(void *param);
+int nsfw_mgr_com_module_init(void *param)
 {
-  lint_lock_1 ();
-  u32 proc_type = (u32) ((long long) param);
-  nsfw_mgr_init_cfg *mgr_cfg = &g_mgr_com_cfg;
-  const char *directory = NSFW_DOMAIN_DIR;
-  const char *home_dir = getenv ("HOME");
+    u32 proc_type = (u32) ((long long) param);
+    nsfw_mgr_init_cfg *mgr_cfg = &g_mgr_com_cfg;
+    const char *directory = NSFW_DOMAIN_DIR;
+    const char *home_dir = get_home_path();
 
-  NSFW_LOGINF ("module mgr init] type=%u", proc_type);
+    NSFW_LOGINF("module mgr init]type=%u", proc_type);
 
-  if (getuid () != 0 && home_dir != NULL)
-    directory = home_dir;
-
-  if (0 != nsfw_mgr_comm_fd_init (proc_type))
+    if (home_dir)
     {
-      NSFW_LOGERR ("fd init fail] proc_type=%u", proc_type);
-      lint_unlock_1 ();
-      return -1;
+        directory = home_dir;
     }
 
-  switch (proc_type)
+    if (0 != nsfw_mgr_comm_fd_init(proc_type))
     {
-    case NSFW_PROC_MAIN:
-      /* modify destMax, remove "-1" */
-      if (EOK !=
-          STRCPY_S (mgr_cfg->domain_path, NSFW_MGRCOM_PATH_LEN, directory))
+        NSFW_LOGERR("fd init fail]proc_type=%u", proc_type);
+        return -1;
+    }
+
+    switch (proc_type)
+    {
+        case NSFW_PROC_MAIN:
+            /*modify destMax, remove "-1" */
+            if (EOK !=
+                strcpy_s(mgr_cfg->domain_path, NSFW_MGRCOM_PATH_LEN,
+                         directory))
+            {
+                NSFW_LOGERR("module mgr init strcpy_s fail");
+                return -1;
+            }
+
+            /*modify destMax, remove "-1" */
+            if (EOK !=
+                strcat_s(mgr_cfg->domain_path, NSFW_MGRCOM_PATH_LEN,
+                         NSFW_MAIN_FILE))
+            {
+                NSFW_LOGERR("module mgr init strcat_s fail");
+                return -1;
+            }
+
+            NSFW_LOGINF("module mgr init]NSFW_PROC_MAIN domain_path=%s",
+                        mgr_cfg->domain_path);
+
+            if (TRUE != nsfw_mgr_com_start())
+            {
+                NSFW_LOGERR("module mgr nsfw_mgr_com_start fail");
+                return -1;
+            }
+
+            break;
+        case NSFW_PROC_MASTER:
+            /* modify destMax, remove "-1" */
+            if (EOK !=
+                strcpy_s(mgr_cfg->domain_path, NSFW_MGRCOM_PATH_LEN,
+                         directory))
+            {
+                NSFW_LOGERR("module mgr init strcpy_s fail");
+                return -1;
+            }
+
+            /* modify destMax, remove "-1" */
+            if (EOK !=
+                strcat_s(mgr_cfg->domain_path, NSFW_MGRCOM_PATH_LEN,
+                         NSFW_MASTER_FILE))
+            {
+                NSFW_LOGERR("module mgr init strcat_s fail");
+                return -1;
+            }
+
+            NSFW_LOGINF("module mgr init]NSFW_PROC_MASTER domain_path=%s",
+                        mgr_cfg->domain_path);
+
+            if (TRUE != nsfw_mgr_com_start())
+            {
+                NSFW_LOGERR("module mgr nsfw_mgr_com_start fail");
+                return -1;
+            }
+
+            break;
+        case NSFW_PROC_TOOLS:
+        case NSFW_PROC_CTRL:
+            if (TRUE != nsfw_mgr_com_start_local(proc_type))
+            {
+                NSFW_LOGERR("module mgr nsfw_mgr_com_start_local fail");
+                return -1;
+            }
+            break;
+        default:
+            if (proc_type < NSFW_PROC_MAX)
+            {
+                break;
+            }
+            return -1;
+    }
+
+    mgr_cfg->msg_size = MGR_COM_MSG_COUNT_DEF;
+    mgr_cfg->max_recv_timeout = MGR_COM_RECV_TIMEOUT_DEF;
+    mgr_cfg->max_recv_drop_msg = MGR_COM_MAX_DROP_MSG_DEF;
+
+    mgr_cfg->proc_type = proc_type;
+
+    nsfw_mem_sppool pmpinfo;
+    if (EOK != memset_s(&pmpinfo, sizeof(pmpinfo), 0, sizeof(pmpinfo)))
+    {
+        NSFW_LOGERR("memset fail");
+        nsfw_mgr_comm_fd_destroy();
+        return -1;
+    }
+
+    pmpinfo.enmptype = NSFW_MRING_MPMC;
+    pmpinfo.usnum = mgr_cfg->msg_size;
+    pmpinfo.useltsize = sizeof(nsfw_mgr_msg);
+    pmpinfo.isocket_id = NSFW_SOCKET_ANY;
+    pmpinfo.stname.entype = NSFW_NSHMEM;
+    if (-1 ==
+        sprintf_s(pmpinfo.stname.aname, sizeof(pmpinfo.stname.aname), "%s",
+                  "MS_MGR_MSGPOOL"))
+    {
+        NSFW_LOGERR("sprintf_s fail");
+        nsfw_mgr_comm_fd_destroy();
+        return -1;
+    }
+
+    mgr_cfg->msg_pool = nsfw_mem_sp_create(&pmpinfo);
+
+    if (!mgr_cfg->msg_pool)
+    {
+        NSFW_LOGERR("module mgr init msg_pool alloc fail");
+        nsfw_mgr_comm_fd_destroy();
+        return -1;
+    }
+
+    (void) MEM_STAT(NSFW_MGR_COM_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
+                    nsfw_mem_get_len(mgr_cfg->msg_pool, NSFW_MEM_SPOOL));
+
+    if ((NSFW_PROC_TOOLS == proc_type)
+        || (NSFW_PROC_CTRL == proc_type) || (NSFW_PROC_MAIN == proc_type))
+    {
+        if (TRUE != nsfw_mgr_ep_start())
         {
-          NSFW_LOGERR ("module mgr init STRCPY_S failed!");
-          lint_unlock_1 ();
-          return -1;
-        }
-
-      nsfw_mgr_com_mkdir_domainpath (mgr_cfg->domain_path);
-
-      NSFW_LOGINF ("module mgr init]NSFW_PROC_MAIN domain_path=%s",
-                   mgr_cfg->domain_path);
-
-      if (TRUE != nsfw_mgr_com_start ())
-        {
-          NSFW_LOGERR ("module mgr nsfw_mgr_com_start failed!");
-          lint_unlock_1 ();
-          return -1;
-        }
-
-      break;
-
-    case NSFW_PROC_TOOLS:
-      break;
-    case NSFW_PROC_CTRL:
-      if (TRUE != nsfw_mgr_com_start_local (proc_type))
-        {
-          NSFW_LOGERR ("module mgr nsfw_mgr_com_start_local failed!");
-          lint_unlock_1 ();
-          return -1;
-        }
-      break;
-    default:
-      if (proc_type < NSFW_PROC_MAX)
-        {
-          break;
-        }
-      lint_unlock_1 ();
-      return -1;
-    }
-
-  mgr_cfg->msg_size = MGR_COM_MSG_COUNT_DEF;
-  mgr_cfg->max_recv_timeout = MGR_COM_RECV_TIMEOUT_DEF;
-  mgr_cfg->max_recv_drop_msg = MGR_COM_MAX_DROP_MSG_DEF;
-
-  mgr_cfg->proc_type = proc_type;
-
-  nsfw_mem_sppool pmpinfo;
-  if (EOK != MEMSET_S (&pmpinfo, sizeof (pmpinfo), 0, sizeof (pmpinfo)))
-    {
-      NSFW_LOGERR ("Error to memset!!!");
-      nsfw_mgr_comm_fd_destroy ();
-      lint_unlock_1 ();
-      return -1;
-    }
-
-  pmpinfo.enmptype = NSFW_MRING_MPMC;
-  pmpinfo.usnum = mgr_cfg->msg_size;
-  pmpinfo.useltsize = sizeof (nsfw_mgr_msg);
-  pmpinfo.isocket_id = NSFW_SOCKET_ANY;
-  pmpinfo.stname.entype = NSFW_NSHMEM;
-  if (-1 ==
-      SPRINTF_S (pmpinfo.stname.aname, sizeof (pmpinfo.stname.aname), "%s",
-                 "MS_MGR_MSGPOOL"))
-    {
-      NSFW_LOGERR ("Error to SPRINTF_S!!!");
-      nsfw_mgr_comm_fd_destroy ();
-      lint_unlock_1 ();
-      return -1;
-    }
-
-  mgr_cfg->msg_pool = nsfw_mem_sp_create (&pmpinfo);
-
-  if (!mgr_cfg->msg_pool)
-    {
-      NSFW_LOGERR ("module mgr init msg_pool alloc failed!");
-      nsfw_mgr_comm_fd_destroy ();
-      lint_unlock_1 ();
-      return -1;
-    }
-
-  (void) MEM_STAT (NSFW_MGR_COM_MODULE, pmpinfo.stname.aname, NSFW_NSHMEM,
-                   nsfw_mem_get_len (mgr_cfg->msg_pool, NSFW_MEM_SPOOL));
-
-  if ((NSFW_PROC_TOOLS == proc_type)
-      || (NSFW_PROC_CTRL == proc_type) || (NSFW_PROC_MAIN == proc_type))
-    {
-      if (TRUE != nsfw_mgr_ep_start ())
-        {
-          NSFW_LOGERR ("module mgr nsfw_mgr_ep_start failed!");
-          nsfw_mgr_comm_fd_destroy ();
-          lint_unlock_1 ();
-          return -1;
+            NSFW_LOGERR("module mgr nsfw_mgr_ep_start fail");
+            nsfw_mgr_comm_fd_destroy();
+            return -1;
         }
     }
-  lint_unlock_1 ();
-  return 0;
+    return 0;
 }
 
 /*****************************************************************************
@@ -2012,37 +2099,36 @@ nsfw_mgr_com_module_init (void *param)
 *   Return Value : int
 *   Calls        :
 *   Called By    :
- *****************************************************************************/
-int
-nsfw_mgr_run_script (const char *cmd, char *result, int result_buf_len)
+*****************************************************************************/
+int nsfw_mgr_run_script(const char *cmd, char *result, int result_buf_len)
 {
-  if (!cmd || !result || result_buf_len <= 1)
+    if (!cmd || !result || result_buf_len <= 1)
     {
-      return -1;
+        return -1;
     }
 
-  FILE *fp = popen (cmd, "r");
-  if (fp != NULL)
+    FILE *fp = popen(cmd, "r");
+    if (fp != NULL)
     {
-      size_t n = fread (result, sizeof (char), result_buf_len - 1, fp);
-      if (n == 0)
+        size_t n = fread(result, sizeof(char), result_buf_len - 1, fp);
+        if (n == 0)
         {
-          result[0] = '\0';
+            result[0] = '\0';
         }
-      else if ('\n' == result[n - 1])
+        else if ('\n' == result[n - 1])
         {
-          result[n - 1] = '\0';
+            result[n - 1] = '\0';
         }
-      else
+        else
         {
-          result[n] = '\0';
+            result[n] = '\0';
         }
 
-      pclose (fp);
-      return n;
+        pclose(fp);
+        return n;
     }
 
-  return -1;
+    return -1;
 }
 
 /* *INDENT-OFF* */

@@ -58,7 +58,7 @@ bash -x $DMM_DIR/scripts/compile_dmm.sh || exit 1
 
 if [ "${BUILD_ALL}" == "YES" ]; then
     #===========build LWIP================
-    bash -x $DMM_DIR/stacks/lwip_stack/vagrant/build.sh "from-base-build" || exit 1
+    #bash -x $DMM_DIR/stacks/lwip_stack/vagrant/build.sh "from-base-build" || exit 1
     #============build rsocket============================
     bash -x $DMM_DIR/scripts/build_rsocket.sh || exit 1
     #=======other new stacks build can be called from here

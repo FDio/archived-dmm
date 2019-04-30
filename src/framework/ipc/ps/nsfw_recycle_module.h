@@ -18,6 +18,8 @@
 #define _NSFW_RECYCLE_MODULE_H
 
 #include "nsfw_recycle_api.h"
+#include "nsfw_mem_api.h"
+#include "types.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -40,40 +42,41 @@ extern "C"{
 
 typedef struct _nsfw_recycle_obj
 {
-  u8 alloc_flag;
-  u8 u8reserve;
-  u16 rec_type;
-  u32 host_pid;
-  void *data;
-  u64 u64reserve;
+    u8 alloc_flag;
+    u8 u8reserve;
+    u16 rec_type;
+    u32 host_pid;
+    void *data;
+    u64 u64reserve;
 } nsfw_recycle_obj;
 
 #define NSFW_REC_LOCK_REL_MAX_FUN 32
 
 typedef struct _nsfw_rec_fun_info
 {
-  nsfw_recycle_fun rec_fun;
-  void *data;
-  u8 proc_type;
+    nsfw_recycle_fun rec_fun;
+    void *data;
+    u8 proc_type;
 } nsfw_rec_fun_info;
 
 typedef struct _nsfw_recycle_pool
 {
-  u32 pool_size;
-  nsfw_recycle_obj obj[0];
+    u32 pool_size;
+
+    nsfw_recycle_obj obj[0];
 } nsfw_recycle_pool;
 
 typedef struct _nsfw_recycle_cfg
 {
-  u16 rec_waite_end_tvalue;
-  mring_handle mem_rec_obj_pool;
-  mzone_handle mem_rec_pro[NSFW_REC_PRO_MAX];
+    u16 rec_waite_end_tvalue;
+    mring_handle mem_rec_obj_pool;
+    mzone_handle mem_rec_pro[NSFW_REC_PRO_MAX];
 } nsfw_recycle_cfg;
 
-extern nsfw_rcc_stat nsfw_recycle_callback_all_obj (u32 pid,
-                                                    nsfw_recycle_pool *
-                                                    rec_pool);
-extern int nsfw_recycle_obj_timeout (u32 timer_type, void *data);
+extern nsfw_rcc_stat nsfw_recycle_callback_all_obj(u32 pid,
+                                                   nsfw_recycle_pool *
+                                                   rec_pool);
+extern int nsfw_recycle_obj_timeout(u32 timer_type, void *data);
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

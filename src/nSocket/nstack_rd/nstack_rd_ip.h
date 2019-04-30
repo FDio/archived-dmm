@@ -17,6 +17,8 @@
 #ifndef __NSTACK_RD_IP_H
 #define __NSTACK_RD_IP_H
 
+#include "nstack_rd_priv.h"
+
 #define NSTACK_RD_IP_ITEM_COPY(destitem, srcitem){  \
         (destitem)->agetime = (srcitem)->agetime;  \
         (destitem)->stack_id = (srcitem)->stack_id;  \
@@ -27,12 +29,12 @@
         (destitem)->ipdata.resev[1] = (srcitem)->ipdata.resev[1];  \
 }
 
-int nstack_rd_ipdata_cpy (void *destdata, void *srcdata);
-int nstack_rd_ip_item_insert (nstack_rd_list * hlist, void *rditem);
-int nstack_rd_ip_item_find (nstack_rd_list * hlist, void *rdkey,
-                            void *outitem);
-int nstack_rd_ip_item_age (nstack_rd_list * hlist);
-int nstack_rd_ip_spec (void *rdkey);
-int nstack_rd_ip_default (void *rdkey);
+int nstack_rd_ip_data_cpy(void *destdata, void *srcdata);
+int nstack_rd_ip_item_insert(nstack_rd_list * hlist, void *rditem);
+int nstack_rd_ip_item_find(nstack_rd_list * hlist, void *rdkey,
+                           void *outitem);
+int nstack_rd_ip_item_age(nstack_rd_list * hlist);
+void nstack_rd_ip_item_clean(nstack_rd_list * hlist);
+int nstack_rd_ip_spec(void *rdkey);
 
 #endif

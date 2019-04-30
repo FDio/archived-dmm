@@ -17,10 +17,11 @@
 #ifndef _LINUX_KERNEL_MODULE_H_
 #define _LINUX_KERNEL_MODULE_H_
 
-#include "nstack_dmm_api.h"
+#include "nstack_callback_ops.h"
 
-#define K_SELECT_THREAD_NAME "kernel_select"
-#define K_EPOLL_THREAD_NAME "kernel_epoll"
+#define DMM_MEM_LIB_PATH_LEN 256
+
+#define K_EPOLL_THREAD_NAME "nstk_ker_epoll"
 
 #ifndef ks_success
 #define ks_success 0
@@ -42,20 +43,21 @@ typedef char ks_bool;
 #define ks_true 1
 #endif
 
-int kernel_stack_register (nstack_proc_cb * ops, nstack_event_cb * val);
+int kernel_stack_register
+    (nstack_socket_ops * ops,
+     nstack_event_ops * val, nstack_proc_ops * fddeal);
 
 typedef struct
 {
-  nstack_event_cb regVal;
-  int epfd;
-  int checkEpollFD;
-  pthread_t ep_thread;
-  ks_bool thread_inited;
-  pthread_t select_thread;      //listen select events
-  nstack_socket_ops libcOps;
+    nstack_event_ops regVal;
+    int epfd;
+    pthread_t ep_thread;
+    ks_bool thread_inited;
+    pthread_t select_thread;    //listen select events
+    nstack_socket_ops libcOps;
 } kernel_stack_info_t;
 
 extern kernel_stack_info_t g_ksInfo;
 
-extern int linux_kernel_stack_init (void);
+extern int linux_kernel_stack_init(void);
 #endif

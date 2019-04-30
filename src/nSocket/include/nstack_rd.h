@@ -17,31 +17,38 @@
 #ifndef __NSTACK_RD_H
 #define __NSTACK_RD_H
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include "nstack_rd_priv.h"
+
 /*look up chose info by key*/
 typedef struct __nstack_rd_key
 {
-  int type;
-  union
-  {
-    unsigned int ip_addr;
-    unsigned int proto_type;
-  };
+    int type;
+    union
+    {
+        unsigned int ip_addr;
+        int socket_type;
+        int proto;
+        struct in6_addr in6_addr;
+    };
 } nstack_rd_key;
-
-#define NSTACK_RD_MAX       (1 * 1024 * 1024)
 
 /*
  *rd synchronism
  *
  */
-int nstack_rd_sys ();
-int nstack_rd_age ();
+int nstack_rd_init(nstack_rd_stack_info * pstack, int num);
+int nstack_rd_sys();
+int nstack_rd_age();
+int nstack_rd_match_pre(int domain, int type, int protocol,
+                        rd_data_item * item);
 
 /*
  *get stackid by some info
  *if input is ip, the value must be net order
  *
  */
-int nstack_rd_get_stackid (nstack_rd_key * addr, int *stackid);
+int nstack_rd_get_stackid(nstack_rd_key * addr, rd_data_item * item);
 
 #endif

@@ -34,8 +34,6 @@
 #include "nstack_module.h"
 #include "nstack_log.h"
 #include "nstack_securec.h"
-#include "nstack_rd.h"
-#include "nstack_rd_data.h"
 
 #define DEFALT_MODULE_CFG_FILE   "./module_config.json"
 #define DEFALT_RD_CFG_FILE   "./rd_config.json"
@@ -50,7 +48,6 @@
 extern nstack_module_keys g_nstack_module_desc[NSTACK_MAX_MODULE_NUM];
 extern ns_uint32 g_module_num;
 
-extern int nstack_module_parse ();
-extern int nstack_stack_rd_parse (rd_route_data ** data, int *num);
+extern int nstack_module_parse();
 
 #endif

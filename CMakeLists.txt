@@ -14,13 +14,11 @@
 # limitations under the License.
 #########################################################################
 
-
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8.11)
 PROJECT(nStack)
 
 option(RMWS    "automatically remove trailing whitespace using git pre-commit hook" OFF)
-option(WITH_SECUREC_LIB "Option description" OFF)
-option(WITH_HAL_LIB "Option description" OFF)
+OPTION(SYSTEMC_LIB  "Use system provided C library instead of secure C library"  ON)
 
 SET(CMAKE_C_COMPILER "gcc")
 SET(EXECUTABLE_PATH ${CMAKE_CURRENT_LIST_DIR}/release/bin)
@@ -29,25 +27,18 @@ SET(LIB_PATH_SHARED ${CMAKE_CURRENT_LIST_DIR}/release/lib64)
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${LIB_PATH_STATIC})
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${EXECUTABLE_PATH})
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${LIB_PATH_SHARED})
-SET(DMM_DPDK_INSTALL_DIR "" CACHE STRING "to get the dpdk install path by cmd")
+SET(OLD_DPDK_PATH ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/base/librtp-*)
 SET(DMM_REL_INC_DIR ${CMAKE_CURRENT_LIST_DIR}/release/include)
 SET(DMM_ARCH x86)
 
-SET(GENERATE_RPM_PATH ${CMAKE_CURRENT_LIST_DIR}/release/rpm)
-file(MAKE_DIRECTORY ${GENERATE_RPM_PATH})
-
-SET(GENERATE_DEB_PATH ${CMAKE_CURRENT_LIST_DIR}/release/deb)
-file(MAKE_DIRECTORY ${GENERATE_DEB_PATH})
+if(SYSTEMC_LIB)
+    ADD_DEFINITIONS(-DSYSTEMC_LIB)
+endif()
 
 MESSAGE(STATUS "Top dir is: " ${CMAKE_CURRENT_LIST_DIR})
 MESSAGE(STATUS "Static library dir: " ${CMAKE_ARCHIVE_OUTPUT_DIRECTORY})
 MESSAGE(STATUS "Executable binary dir: " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 MESSAGE(STATUS "Shared library dir: " ${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-
-
-add_custom_target(clean-cmake-files
-  COMMAND ${CMAKE_COMMAND} -P clean-all.cmake
-)
 
 if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
   message(STATUS "Setting git commit template...")
@@ -96,63 +87,40 @@ if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
   endif()
 endif()
 
-if(WITH_SECUREC_LIB)
-  add_definitions(-DSECUREC_LIB)
-endif()
-
-if(WITH_HAL_LIB)
-  add_definitions(-DHAL_LIB)
-endif()
-
 SET(post_compile "${PROJECT_BINARY_DIR}/post_compile.sh")
 FILE(WRITE ${post_compile} "#!/bin/bash\n")
-if(WITH_HAL_LIB)
-else()
 FILE(APPEND ${post_compile}
 "
 
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/nstack_dmm_api.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/adapt/nstack_dmm_adpt.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/adapt/nstack_share_res.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/declare_syscalls.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/include/* ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/base/include/*.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/base/include/common/* ${CMAKE_CURRENT_LIST_DIR}/release/include/
+rm -rf ${OLD_DPDK_PATH};
 
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/*.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -rf ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/generic ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/common/include/arch/${DMM_ARCH}/* ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/ipc/mgr_com/mgr_com.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/framework/hal/hal.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-cp -f ${CMAKE_CURRENT_LIST_DIR}/src/nSocket/include/nstack_dmm_api.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/include/*.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
+mkdir ${CMAKE_CURRENT_LIST_DIR}/release/include/glog/
+cp -f ${CMAKE_CURRENT_LIST_DIR}/thirdparty/glog/glog-0.3.5/src/glog/nstack_glog.ph ${CMAKE_CURRENT_LIST_DIR}/release/include/glog/
+cp -f ${CMAKE_CURRENT_LIST_DIR}/thirdparty/glog/glog-0.3.5/src/glog/nstack_glog_in.h ${CMAKE_CURRENT_LIST_DIR}/release/include/glog/
 echo post compile process success.
 "
 )
-endif()
+
+ADD_CUSTOM_TARGET(DPDK ALL COMMAND sh post_compile.sh)
 
 SET(clean_compile "${PROJECT_BINARY_DIR}/clean_compile.sh")
 FILE(WRITE ${clean_compile} "#!/bin/bash\n")
 FILE(APPEND ${clean_compile}
 "
 
-rm -rf ${CMAKE_CURRENT_LIST_DIR}/release/include/*.h
-rm -rf ${CMAKE_CURRENT_LIST_DIR}/release/include/generic
-rm -rf ${CMAKE_CURRENT_LIST_DIR}/release/lib64/libdmm_api.so
+rm -rf ${CMAKE_CURRENT_LIST_DIR}/release/lib64/libsecurec.so
 
 echo post clean process success.
 "
 )
-
-ADD_CUSTOM_TARGET(DPDK ALL COMMAND sh post_compile.sh)
-ADD_DEPENDENCIES(DPDK dmm_api)
-
 ADD_CUSTOM_TARGET(pkg-rpm COMMAND sh ../scripts/generate_dmm_rpm.sh)
 
 ADD_CUSTOM_TARGET(pkg-deb COMMAND sh ../scripts/generate_dmm_deb.sh)
-
-ADD_CUSTOM_TARGET(vpp-stack COMMAND sh ../scripts/build_vpp.sh)
+ADD_CUSTOM_TARGET(vpp-stack
+COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/src/include/declare_syscalls.h.tmpl ${CMAKE_CURRENT_LIST_DIR}/release/include/
+COMMAND sh ../scripts/build_vpp.sh)
 ADD_DEPENDENCIES(vpp-stack DPDK)
-
 ADD_CUSTOM_TARGET(checkstyle
  COMMAND bash  ${CMAKE_CURRENT_LIST_DIR}/scripts/checkstyle.sh -c)
 ADD_CUSTOM_TARGET(fixstyle
@@ -182,34 +150,30 @@ ExternalProject_Add(
 		INSTALL_COMMAND cp -f .libs/libjson-c.a ${LIB_PATH_STATIC}/
 )
 
-SET(SECUREC_SRC ${CMAKE_CURRENT_LIST_DIR}/thirdparty/SecureC/src)
-SET(SECUREC_SRC_H ${CMAKE_CURRENT_LIST_DIR}/thirdparty/SecureC/include)
-
-if(WITH_SECUREC_LIB)
-INCLUDE(ExternalProject)
-ExternalProject_Add(
-		SECUREC
-		SOURCE_DIR ${SECUREC_SRC}
-		BUILD_IN_SOURCE 1
-		CONFIGURE_COMMAND ""
-        BUILD_COMMAND COMMAND make -j 8
-		INSTALL_COMMAND cp -f ${SECUREC_SRC}/../lib/libsecurec.so ${LIB_PATH_SHARED}/
-)
+if(NOT SYSTEMC_LIB)
+    SET(SECUREC_SRC ${CMAKE_CURRENT_LIST_DIR}/thirdparty/SecureC/src)
+    INCLUDE(ExternalProject)
+    ExternalProject_Add(
+            SECUREC
+            SOURCE_DIR ${SECUREC_SRC}
+            BUILD_IN_SOURCE 1
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND COMMAND make -j 8
+            INSTALL_COMMAND cp -f ${SECUREC_SRC}/../lib/libsecurec.so ${LIB_PATH_SHARED}/
+    )
 endif()
 
-SET(GLOG_SRC ${CMAKE_CURRENT_LIST_DIR}/thirdparty/glog/glog-0.3.4)
+SET(GLOG_SRC ${CMAKE_CURRENT_LIST_DIR}/thirdparty/glog/glog-0.3.5)
 INCLUDE(ExternalProject)
 ExternalProject_Add(
-		GLOG
-		SOURCE_DIR ${GLOG_SRC}
-		BUILD_IN_SOURCE 1
-		CONFIGURE_COMMAND autoreconf -ivf COMMAND sh configure CFLAGS=-fPIC CXXFLAGS=-fPIC
-        BUILD_COMMAND COMMAND make -j 8
-		INSTALL_COMMAND cp -f ${GLOG_SRC}/.libs/libglog.a ${LIB_PATH_STATIC}/
+        GLOG
+        SOURCE_DIR ${GLOG_SRC}
+        BUILD_IN_SOURCE 1
+        CONFIGURE_COMMAND autoreconf COMMAND sh configure CFLAGS=-fPIC CXXFLAGS=-fPIC
+        BUILD_COMMAND COMMAND make
+        INSTALL_COMMAND cp -f ${GLOG_SRC}/.libs/libglog.a ${LIB_PATH_STATIC}/
 )
 
 ADD_SUBDIRECTORY(src)
-ADD_SUBDIRECTORY(app_example)
-
-ADD_SUBDIRECTORY(stacks/rsocket)
 ADD_SUBDIRECTORY(thirdparty/apps)
+ADD_SUBDIRECTORY(stacks/rsocket)

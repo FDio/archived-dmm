@@ -29,36 +29,36 @@
 #include "nstack_sockops.h"
 #include "nstack_securec.h"
 
-int
-lk_listen (int sockfd, int backlog)
+int lk_listen(int sockfd, int backlog)
 {
-  int ret = -1;
+    int ret = -1;
 
-  NSTACK_CAL_FUN (&g_ksInfo.libcOps, listen, (sockfd, backlog), ret);
-  return ret;
+    NSTACK_CAL_FUN(&g_ksInfo.libcOps, listen, (sockfd, backlog), ret);
+
+    return ret;
 }
 
-int
-lk_epollctl (int epfd, int op, int protoFd, struct epoll_event *event)
+int lk_epollctl(int epfd, int op, int protoFd, struct epoll_event *event)
 {
-  int retVal;
-  struct epoll_event ev;
+    int retVal;
+    struct epoll_event ev;
 
-  /* Input parameter validation */
-  if (NULL == event)
+    /* Input parameter validation */
+    if (NULL == event)
     {
-      NSSOC_LOGERR ("input param event is NULL");
-      return -1;
+        NSSOC_LOGERR("input param event is NULL");
+        return -1;
     }
 
-  retVal =
-    MEMCPY_S (&ev, sizeof (struct epoll_event), event,
-              sizeof (struct epoll_event));
-  if (EOK != retVal)
+    /*There are some unsafe function ,need to be replace with safe function */
+    retVal =
+        memcpy_s(&ev, sizeof(struct epoll_event), event,
+                 sizeof(struct epoll_event));
+    if (EOK != retVal)
     {
-      NSSOC_LOGERR ("MEMCPY_S failed]ret=%d", retVal);
-      return -1;
+        NSSOC_LOGERR("memcpy_s failed]ret=%d", retVal);
+        return -1;
     }
-  ev.data.fd = protoFd;
-  return g_ksInfo.libcOps.pfepoll_ctl (g_ksInfo.epfd, op, protoFd, &ev);
+    ev.data.fd = protoFd;
+    return g_ksInfo.libcOps.pfepoll_ctl(g_ksInfo.epfd, op, protoFd, &ev);
 }

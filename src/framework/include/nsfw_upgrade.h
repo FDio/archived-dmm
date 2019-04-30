@@ -32,9 +32,9 @@ extern "C" {
 
 #define USE_MEM_BIT(mem_bit, struct, mem) (mem_bit |= ((i64)1 << struct ## _ ## mem))
 
-#define UPGRADE_MEM_VAL(mem_bit, struct, mem, obj, default) {     \
+#define UPGRADE_MEM_VAL(mem_bit, struct, mem, obj, defalut) {     \
         if (!GET_MEM_BIT(mem_bit, struct, mem)){                  \
-            obj->mem = default;                                   \
+            obj->mem = defalut;                                   \
         }                                                         \
     }
 

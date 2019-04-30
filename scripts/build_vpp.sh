@@ -20,10 +20,10 @@ set -x
 cd ../stacks/vpp
 
 git clone https://gerrit.fd.io/r/vpp
-
 cd vpp
-git checkout origin/stable/1804 -b vpp_1804_br
+git fetch https://gerrit.fd.io/r/vpp refs/changes/39/18639/2 && git checkout FETCH_HEAD
 cp ../adapt/* src/vcl/
-git am ../patch/*
+git apply --ignore-space-change --ignore-whitespace ../patch/vpp.patch
 make UNATTENDED=yes install-dep
 make build
+

@@ -19,7 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "nstack_types.h"
+#include "types.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -29,7 +29,7 @@ extern "C"{
 
 typedef struct
 {
-  volatile ns_int32 counter;
+    volatile ns_int32 counter;
 } atomic_t;
 
 #define atomic_set(v, i) ((v)->counter = (i))
@@ -42,11 +42,11 @@ typedef struct
 
 #define atomic_read(v) atomic_fetch_and_add(v, 0)
 #define atomic_inc(v) atomic_add_and_fetch(v, 1)
-#define atomic_dec(v)atomic_sub_and_fetch(v, 1)
+#define atomic_dec(v) atomic_sub_and_fetch(v, 1)
 #define atomic_add(v, i) atomic_add_and_fetch(v, i)
 #define atomic_sub(v, i) atomic_sub_and_fetch(v,i)
 
-#define cas(ptr, oldValue, exchange) __sync_bool_compare_and_swap(ptr, oldValue, exchange)
+#define cas(ptr, oldValue, exchage) __sync_bool_compare_and_swap(ptr, oldValue, exchage)
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

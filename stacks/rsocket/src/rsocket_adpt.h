@@ -22,11 +22,11 @@
 
 enum
 {
-  RR_STAT_EPW_ERR,
-  RR_STAT_EPW_EINTR,
-  RR_STAT_EPW_ETIMEOUT,
+    RR_STAT_EPW_ERR,
+    RR_STAT_EPW_EINTR,
+    RR_STAT_EPW_ETIMEOUT,
 
-  RR_STAT_NUM
+    RR_STAT_NUM
 };
 
 #define RR_STAT_ADD(id, num) __sync_add_and_fetch(&g_rr_var.stat[(id)], num)
@@ -38,17 +38,16 @@ enum
 
 typedef struct rsocket_var
 {
-  pthread_t epoll_threadid;
+    pthread_t epoll_threadid;
 
-  int epfd;
-  int type;
-  int (*event_cb) (void *pdata, int events);
+    int epfd;
+    int type;
+    void (*event_cb) (void *pdata, int events, int postFlag);
 
-  uint64_t stat[RR_STAT_NUM];
+    uint64_t stat[RR_STAT_NUM];
 } rsocket_var_t;
 
 extern rsocket_var_t g_rr_var;
-
-int rr_rs_handle (int fd, uint32_t events);
-
+int rsocket_getEvt(int fd);
+int rr_rs_handle(int fd, uint32_t events);
 #endif /* #ifndef _RSOCKET_ADPT_H_ */

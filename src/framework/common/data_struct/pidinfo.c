@@ -17,109 +17,105 @@
 #include "pidinfo.h"
 #include "nstack_securec.h"
 
-inline i32
-nsfw_pidinfo_init (nsfw_pidinfo * pidinfo)
+inline i32 nsfw_pidinfo_init(nsfw_pidinfo * pidinfo)
 {
-  int retVal =
-    MEMSET_S (pidinfo, sizeof (nsfw_pidinfo), 0, sizeof (nsfw_pidinfo));
-  if (EOK != retVal)
+    /*add return value check */
+    int retVal =
+        memset_s(pidinfo, sizeof(nsfw_pidinfo), 0, sizeof(nsfw_pidinfo));
+    if (EOK != retVal)
     {
-      return -1;
+        return -1;
     }
 
-  return 0;
+    return 0;
 }
 
-inline int
-nsfw_add_pid (nsfw_pidinfo * pidinfo, u32 pid)
+inline int nsfw_add_pid(nsfw_pidinfo * pidinfo, u32 pid)
 {
-  u32 i;
+    u32 i;
 
-  for (i = 0; i < NSFW_MAX_FORK_NUM; i++)
+    for (i = 0; i < NSFW_MAX_FORK_NUM; i++)
     {
-      if ((0 == pidinfo->apid[i])
-          && (__sync_bool_compare_and_swap (&pidinfo->apid[i], 0, pid)))
+
+        if ((0 == pidinfo->apid[i])
+            && (__sync_bool_compare_and_swap(&pidinfo->apid[i], 0, pid)))
         {
-          if (pidinfo->used_size < i + 1)
+            if (pidinfo->used_size < i + 1)
             {
-              pidinfo->used_size = i + 1;
+                pidinfo->used_size = i + 1;
             }
-          return 0;
+            return 0;
         }
     }
-  return -1;
+    return -1;
 }
 
-inline int
-nsfw_del_pid (nsfw_pidinfo * pidinfo, u32 pid)
+inline int nsfw_del_pid(nsfw_pidinfo * pidinfo, u32 pid)
 {
-  u32 i;
+    u32 i;
 
-  for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
+    for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
     {
-      if (pid == pidinfo->apid[i])
+        if (pid == pidinfo->apid[i])
         {
-          pidinfo->apid[i] = 0;
-          return 0;
+            pidinfo->apid[i] = 0;
+            return 0;
         }
     }
-  return -1;
+    return -1;
 }
 
-inline int
-nsfw_del_last_pid (nsfw_pidinfo * pidinfo, u32 pid)
+inline int nsfw_del_last_pid(nsfw_pidinfo * pidinfo, u32 pid)
 {
-  u32 i;
-  int count = 0;
-  int deleted = 0;
-  for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
+    u32 i;
+    int count = 0;
+    int deleted = 0;
+    for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
     {
-      if (pid == pidinfo->apid[i])
+        if (pid == pidinfo->apid[i])
         {
-          pidinfo->apid[i] = 0;
-          deleted = 1;
-          continue;
+            pidinfo->apid[i] = 0;
+            deleted = 1;
+            continue;
         }
 
-      if (pidinfo->apid[i] != 0)
+        if (pidinfo->apid[i] != 0)
         {
-          ++count;
+            ++count;
         }
     }
 
-  if (!deleted)
+    if (!deleted)
     {
-      return -1;
+        return -1;
     }
 
-  return count;
+    return count;
 }
 
-inline int
-nsfw_pid_exist (nsfw_pidinfo * pidinfo, u32 pid)
+inline int nsfw_pid_exist(nsfw_pidinfo * pidinfo, u32 pid)
 {
-  u32 i;
+    u32 i;
 
-  for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
+    for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
     {
-      if (pid == pidinfo->apid[i])
+        if (pid == pidinfo->apid[i])
         {
-          return 1;
+            return 1;
         }
     }
-  return 0;
+    return 0;
 }
 
-inline int
-nsfw_pidinfo_empty (nsfw_pidinfo * pidinfo)
+inline int nsfw_pidinfo_empty(nsfw_pidinfo * pidinfo)
 {
-  u32 i;
-  for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
+    u32 i;
+    for (i = 0; i < pidinfo->used_size && i < NSFW_MAX_FORK_NUM; i++)
     {
-      if (pidinfo->apid[i] != 0)
+        if (pidinfo->apid[i] != 0)
         {
-          return 0;
+            return 0;
         }
     }
-  return 1;
+    return 1;
 }

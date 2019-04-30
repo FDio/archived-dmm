@@ -14,25 +14,22 @@
 # limitations under the License.
 #########################################################################
 
-
-if(WITH_HAL_LIB)
-else()
-    SET(PAL_H_DIRECTORIES "/usr/include/dpdk/")
-endif()
-
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 INCLUDE_DIRECTORIES(
-    include/
-    kernel/
-    nstack/
-    nstack/event/
-    nstack/event/epoll
-    nstack/event/select
-    ${SECUREC_SRC_H}
-    ${PAL_H_DIRECTORIES}
-    ${CMAKE_CURRENT_LIST_DIR}/../adapt
-    ${CMAKE_CURRENT_LIST_DIR}/../../thirdparty/json/json-c-0.12.1
+    ${JSON_C_SRC}
+    ${CMAKE_CURRENT_LIST_DIR}/include
+    ${CMAKE_CURRENT_LIST_DIR}/kernel
+    ${CMAKE_CURRENT_LIST_DIR}/nstack
+    ${CMAKE_CURRENT_LIST_DIR}/nstack/event/
+    ${CMAKE_CURRENT_LIST_DIR}/nstack/event/epoll
+    ${CMAKE_SOURCE_DIR}/src/framework/event/epoll
+    ${CMAKE_CURRENT_LIST_DIR}/nstack/event/select
+    ${CMAKE_SOURCE_DIR}/src/framework/include
+    ${CMAKE_SOURCE_DIR}/src/framework/include/common/generic
+    ${CMAKE_SOURCE_DIR}/src/framework/include/common/
+	${CMAKE_SOURCE_DIR}/src/framework/dfx
+    ${CMAKE_SOURCE_DIR}/src/include
 )
-
 FILE(GLOB_RECURSE nSocket *.c)
 ADD_LIBRARY(nStackAPI SHARED ${nSocket})
 TARGET_LINK_LIBRARIES(
@@ -40,10 +37,6 @@ TARGET_LINK_LIBRARIES(
     -Wl,--whole-archive
     ${LIB_PATH_STATIC}/libjson-c.a
     ${LIB_PATH_STATIC}/libglog.a
-    dmm_api
-    -Wl,--no-whole-archive,-lstdc++
-    rte_eal
-    rte_mempool
-    rte_mbuf
-    rte_ring)
-ADD_DEPENDENCIES(nStackAPI dmm_api)
+    nStackFw
+    -Wl,--no-whole-archive,-lstdc++)
+ADD_DEPENDENCIES(nStackAPI nStackFw)

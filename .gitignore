@@ -1,44 +1,14 @@
-#ignoring the changes in sub folders of release folder
-/release/bin/
-/release/lib64/
-/release/include/
-/release/include/common/
-/release/include/generic/
-/release/include/*.h
-!/release/include/declare_syscalls.h
-!/release/include/nsocket_dmm_api.h
+#ignore file with suffix .bak
+*.bak
 
 #ignoring the changes in sub folders of build folder
-/build/app_example/
-/build/CMakeFiles/
-/build/GLOG-prefix/
-/build/JSON-prefix/
-/build/clean_compile.sh
-/build/cmake_install.cmake
-/build/CMakeCache.txt
-/build/libdmm_api.a
-/build/libglog.a
-/build/libjson-c.a
-/build/Makefile
-/build/post_compile.sh
-/build/src/
-/build/stacks/
-/build/thirdparty/
-/build/libnStackMaintain.a
-/build/libsocket.a
-/stacks/lwip_stack/lwip_src/lwip-2.0.3.zip
-/stacks/lwip_stack/lwip_src/lwip/
-/stacks/lwip_stack/build/
-/stacks/lwip_stack/release/
-/scripts/checkstyle.sh
-/stacks/lwip_stack/release/bin/
-/stacks/lwip_stack/release/script/
-/stacks/lwip_stack/src/include/
-!/stacks/lwip_stack/src/include/nsfw_msg_api.h
-!/stacks/lwip_stack/src/include/nsfw_msg.h
-!/stacks/lwip_stack/src/include/nsfw_mt_config.h
-!/stacks/lwip_stack/src/include/nsfw_rti.h
+build/
+
 #ignoring the changes in sub folders of thirdparty folder
-/thirdparty/
-/thirdparty/glog/glog-0.3.4/compile/
-/thirdparty/glog/glog-0.3.4/m4/
+thirdparty/
+
+#ignoring the changes in sub folders of release folder
+release/
+
+#ignoring the changes in sub folders of platform folder
+platform/

@@ -26,314 +26,199 @@
 /*==============================================*
  *      project-wide global variables           *
  *----------------------------------------------*/
-i32 nstack_mod_fd[NSTACK_MAX_MODULE_NUM][NSTACK_SELECT_MAX_FD];
 struct select_fd_map_inf g_select_fd_map;
 
 /*==============================================*
  *      routines' or functions' implementations *
  *----------------------------------------------*/
 
-/*****************************************************************************
-*   Prototype    : select_alloc
-*   Description  : select_alloc
-*   Input        : int size
-*   Output       : None
-*   Return Value : void *
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-void *
-select_alloc (int size)
+void *select_alloc(int size)
 {
 
-  char *p;
-  if (size <= 0)
+    char *p;
+    if (size <= 0)
     {
-      return NULL;
+        return NULL;
     }
 
-  p = malloc (size);
-  if (!p)
+    p = malloc(size);
+    if (!p)
     {
-      return NULL;
+        return NULL;
     }
-  if (EOK != MEMSET_S (p, size, 0, size))
+    if (EOK != memset_s(p, size, 0, size))
     {
-      free (p);
-      p = NULL;
+        free(p);
+        p = NULL;
     }
 
-  return p;
+    return p;
 }
 
-/*****************************************************************************
-*   Prototype    : select_free
-*   Description  : select_free
-*   Input        : char *p
-*   Output       : None
-*   Return Value : void
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-void
-select_free (char *p)
+/*point is set to NULL because it's freeed */
+void select_free(void *p)
 {
 
-  if (p)
+    if (p)
     {
-      free (p);
-      p = NULL;
+        free(p);
+        p = NULL;
     }
 }
 
-/*****************************************************************************
-*   Prototype    : get_select_fdinf
-*   Description  : get_select_fdinf
-*   Input        : i32 fd
-*   Output       : None
-*   Return Value : struct select_comm_fd_map *
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-struct select_comm_fd_map *
-get_select_fdinf (i32 fd)
+struct select_comm_fd_map *get_select_fdinf(i32 fd)
 {
-  if ((fd < 0) || (fd >= NSTACK_SELECT_MAX_FD))
+    if ((fd < 0) || ((u32) fd >= NSTACK_SELECT_MAX_FD))
     {
-      return NULL;
+        return NULL;
     }
-  return (&g_select_fd_map.fdinf[fd]);
+    return (&g_select_fd_map.fdinf[fd]);
 }
 
-/*****************************************************************************
-*   Prototype    : reset_select_fdinf
-*   Description  : reset_select_fdinf
-*   Input        : i32 fd
-*   Output       : None
-*   Return Value : void
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-void
-reset_select_fdinf (i32 fd)
+void reset_select_fdinf(i32 fd)
 {
-  i32 i;
-  struct select_comm_fd_map *fdinf = get_select_fdinf (fd);
-  if (NULL == fdinf)
+    i32 i;
+    struct select_comm_fd_map *fdinf = get_select_fdinf(fd);
+    /* fdinf is possible is null */
+    if (NULL == fdinf)
     {
-      return;
+        return;
     }
-  fdinf->index = -1;
-  for (i = 0; i < NSTACK_MAX_MODULE_NUM; i++)
+    fdinf->index = -1;
+    for (i = 0; i < NSTACK_MAX_MODULE_NUM; i++)
     {
-      fdinf->mod_fd[i] = -1;
+        fdinf->mod_fd[i] = -1;
     }
 }
 
-/*****************************************************************************
-*   Prototype    : select_get_modfd
-*   Description  : select_get_modfd
-*   Input        : i32 fd
-*                  i32 inx
-*   Output       : None
-*   Return Value : i32
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-i32
-select_get_modfd (i32 fd, i32 inx)
+i32 select_get_modfd(i32 fd, i32 inx)
 {
-  if ((fd < 0) || (fd >= NSTACK_SELECT_MAX_FD))
+    if ((fd < 0) || ((u32) fd >= NSTACK_SELECT_MAX_FD))
     {
-      return -1;
+        return -1;
     }
-  if ((inx < 0))
+    if ((inx < 0))
     {
-      return -1;
+        return -1;
     }
-  if (!g_select_fd_map.fdinf)
+    if (!g_select_fd_map.fdinf)
     {
-      return FALSE;
+        return FALSE;
     }
-  return (g_select_fd_map.fdinf[fd].mod_fd[inx]);
+    return (g_select_fd_map.fdinf[fd].mod_fd[inx]);
 
 }
 
-/*****************************************************************************
-*   Prototype    : select_set_modfd
-*   Description  : select_set_modfd
-*   Input        : i32 fd
-*                  i32 inx
-*                  i32 modfd
-*   Output       : None
-*   Return Value : i32
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-i32
-select_set_modfd (i32 fd, i32 inx, i32 modfd)
+i32 select_set_modfd(i32 fd, i32 inx, i32 modfd)
 {
-  if ((fd < 0) || (fd >= NSTACK_SELECT_MAX_FD))
+    if ((fd < 0) || ((u32) fd >= NSTACK_SELECT_MAX_FD))
     {
-      return -1;
+        return -1;
     }
-  if (!g_select_fd_map.fdinf)
+    if (!g_select_fd_map.fdinf)
     {
-      return FALSE;
+        return FALSE;
     }
-  g_select_fd_map.fdinf[fd].mod_fd[inx] = modfd;
+    g_select_fd_map.fdinf[fd].mod_fd[inx] = modfd;
 
-  return TRUE;
+    return TRUE;
 }
 
-/*****************************************************************************
-*   Prototype    : select_get_modindex
-*   Description  : select_get_modindex
-*   Input        : i32 fd
-*   Output       : None
-*   Return Value : i32
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-i32
-select_get_modindex (i32 fd)
+i32 select_get_modindex(i32 fd)
 {
-  if ((fd < 0) || (fd >= NSTACK_SELECT_MAX_FD))
+    if ((fd < 0) || ((u32) fd >= NSTACK_SELECT_MAX_FD))
     {
-      return -1;
+        return -1;
     }
-  return g_select_fd_map.fdinf[fd].index;
+    return g_select_fd_map.fdinf[fd].index;
 }
 
-/*****************************************************************************
-*   Prototype    : select_get_commfd
-*   Description  : select_get_commfd
-*   Input        : i32 modfd
-*                  i32 inx
-*   Output       : None
-*   Return Value : i32
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-i32
-select_get_commfd (i32 modfd, i32 inx)
+i32 select_get_commfd(i32 modfd, i32 inx)
 {
 
-  if ((modfd < 0) || (modfd >= NSTACK_SELECT_MAX_FD))
+    if ((modfd < 0) || ((u32) modfd >= NSTACK_SELECT_MAX_FD))
     {
-      return -1;
+        return -1;
     }
-  return g_select_fd_map.modinf[inx].comm_fd[modfd];
+    return g_select_fd_map.modinf[inx].comm_fd[modfd];
 }
 
-/*****************************************************************************
-*   Prototype    : select_set_commfd
-*   Description  : select_set_commfd
-*   Input        : i32 modfd
-*                  i32 inx
-*                  i32 fd
-*   Output       : None
-*   Return Value : i32
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-i32
-select_set_commfd (i32 modfd, i32 inx, i32 fd)
+i32 select_set_commfd(i32 modfd, i32 inx, i32 fd)
 {
-  if ((modfd < 0) || (modfd >= NSTACK_SELECT_MAX_FD))
+    if ((modfd < 0) || ((u32) modfd >= NSTACK_SELECT_MAX_FD))
     {
-      return -1;
+        return -1;
     }
-  if (!g_select_fd_map.modinf[inx].comm_fd)
+    if (!g_select_fd_map.modinf[inx].comm_fd)
     {
-      return FALSE;
+        return FALSE;
     }
-  g_select_fd_map.modinf[inx].comm_fd[modfd] = fd;
+    g_select_fd_map.modinf[inx].comm_fd[modfd] = fd;
 
-  return TRUE;
+    return TRUE;
 }
 
-/*****************************************************************************
-*   Prototype    : select_set_index
-*   Description  : select_set_index
-*   Input        : i32 fd
-*                  i32 inx
-*   Output       : None
-*   Return Value : i32
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-i32
-select_set_index (i32 fd, i32 inx)
+i32 select_set_index(i32 fd, i32 inx)
 {
-  if ((fd < 0) || (fd >= NSTACK_SELECT_MAX_FD))
+    if ((fd < 0) || ((u32) fd >= NSTACK_SELECT_MAX_FD))
     {
-      return -1;
+        return -1;
     }
-  if (!g_select_fd_map.fdinf)
+    if (!g_select_fd_map.fdinf)
     {
-      return FALSE;
+        return FALSE;
     }
-  g_select_fd_map.fdinf[fd].index = inx;
-  return TRUE;
+    g_select_fd_map.fdinf[fd].index = inx;
+    return TRUE;
 }
 
-/*****************************************************************************
-*   Prototype    : fdmapping_init
-*   Description  : fdmapping_init
-*   Input        : void
-*   Output       : None
-*   Return Value : i32
-*   Calls        :
-*   Called By    :
-*****************************************************************************/
-i32
-fdmapping_init (void)
+i32 fdmapping_init(void)
 {
-  int ret = FALSE;
-  int i, inx;
+    int ret = FALSE;
+    int i, inx;
 
-  g_select_fd_map.fdinf =
-    (struct select_comm_fd_map *)
-    select_alloc (sizeof (struct select_comm_fd_map) * NSTACK_SELECT_MAX_FD);
-  if (NULL == g_select_fd_map.fdinf)
+    g_select_fd_map.fdinf =
+        (struct select_comm_fd_map *)
+        select_alloc(sizeof(struct select_comm_fd_map) *
+                     NSTACK_SELECT_MAX_FD);
+    if (NULL == g_select_fd_map.fdinf)
     {
-      goto err_return;
+        goto err_return;
     }
 
-  for (i = 0; i < get_mode_num (); i++)
+    for (i = 0; i < nstack_get_module_num(); i++)
     {
-      g_select_fd_map.modinf[i].comm_fd =
-        (i32 *) select_alloc (sizeof (i32) * NSTACK_SELECT_MAX_FD);
-      if (NULL == g_select_fd_map.modinf[i].comm_fd)
+        g_select_fd_map.modinf[i].comm_fd =
+            (i32 *) select_alloc(sizeof(i32) * NSTACK_SELECT_MAX_FD);
+        if (NULL == g_select_fd_map.modinf[i].comm_fd)
         {
-          goto err_return;
+            goto err_return;
         }
     }
 
-  for (i = 0; i < NSTACK_SELECT_MAX_FD; i++)
+    u32 fd_idx = 0;
+    for (fd_idx = 0; fd_idx < NSTACK_SELECT_MAX_FD; fd_idx++)
     {
-      reset_select_fdinf (i);
+        reset_select_fdinf(fd_idx);
     }
 
-  for (inx = 0; inx < get_mode_num (); inx++)
+    for (inx = 0; inx < nstack_get_module_num(); inx++)
     {
-      for (i = 0; i < NSTACK_SELECT_MAX_FD; i++)
+        for (fd_idx = 0; fd_idx < NSTACK_SELECT_MAX_FD; fd_idx++)
         {
-          select_set_commfd (i, inx, -1);
-
+            select_set_commfd(fd_idx, inx, -1);
         }
     }
 
-  ret = TRUE;
-  return ret;
-err_return:
+    ret = TRUE;
+    return ret;
+  err_return:
 
-  select_free ((char *) g_select_fd_map.fdinf);
-  for (i = 0; i < get_mode_num (); i++)
+    select_free((char *) g_select_fd_map.fdinf);
+    for (i = 0; i < nstack_get_module_num(); i++)
     {
-      select_free ((char *) g_select_fd_map.modinf[i].comm_fd);
+        select_free((char *) g_select_fd_map.modinf[i].comm_fd);
     }
 
-  return ret;
+    return ret;
 }

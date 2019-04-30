@@ -19,6 +19,7 @@
 
 #include "list.h"
 #include "pidinfo.h"
+#include "nsfw_mem_api.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -42,18 +43,18 @@ extern "C"{
 
 typedef struct _ns_mem_mng_init_cfg
 {
-  u16 srv_restore_tvalue;
-  u16 ps_exit_resend_tvalue;
-  u16 ps_send_per_time;
-  u16 srv_suspend;
-  void *p_restore_timer;
+    u16 srv_restore_tvalue;
+    u16 ps_exit_resend_tvalue;
+    u16 ps_send_per_time;
+    u16 srv_suspend;
+    void *p_restore_timer;
 } ns_mem_mng_init_cfg;
 
 /*mem alloc by msg begin*/
 typedef struct
 {
-  nsfw_mem_name stname;
-  u16 ustype;
+    nsfw_mem_name stname;
+    u16 ustype;
 } nsfw_mem_type_info;
 
 #define NSFW_MEM_CALL_ARG_BUF 256
@@ -61,22 +62,22 @@ typedef struct
         ((_dst_type*)(void*)_dst_buf)->_dst_member = ((_srctype*)(void*)_src_buf)->_src_member
 
 typedef void *(*nsfw_ps_mem_create_fun) (void *memstr);
-typedef u8 (*nsfw_ps_mem_msg_to_memstr) (u16 msg_type, char *msg_body,
-                                         char *memstr_buf, i32 buf_len);
+typedef u8(*nsfw_ps_mem_msg_to_memstr) (u16 msg_type, char *msg_body,
+                                        char *memstr_buf, i32 buf_len);
 
 typedef struct __nsfw_ps_mem_item_cfg
 {
-  u16 usmsg_type;
-  u16 item_size;
-  u16 mem_type;
-  nsfw_ps_mem_create_fun create_fun;
-  nsfw_ps_mem_msg_to_memstr change_fun;
+    u16 usmsg_type;
+    u16 item_size;
+    u16 mem_type;
+    nsfw_ps_mem_create_fun create_fun;
+    nsfw_ps_mem_msg_to_memstr change_fun;
 } nsfw_ps_mem_item_cfg;
 
-void *mem_item_free (void *pdata);
-void *mem_item_lookup (void *pdata);
-u8 mem_item_get_callargv (u16 msg_type, char *msg_body, char *memstr_buf,
-                          i32 buf_len);
+void *mem_item_free(void *pdata);
+void *mem_item_lookup(void *pdata);
+u8 mem_item_get_callargv(u16 msg_type, char *msg_body, char *memstr_buf,
+                         i32 buf_len);
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

@@ -18,8 +18,7 @@
 #define _HAL_H_
 
 #include <stdint.h>
-#include "hal_api.h"
-#include "nstack_log.h"
+#include "nsfw_hal_api.h"
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
@@ -29,150 +28,86 @@ extern "C" {
 
 #define HAL_DRV_MAX   32
 
-#define HAL_IO_REGISTER(name, ops) \
-    static __attribute__((__constructor__)) void __hal_register##name(void)  \
-    {\
-        hal_io_adpt_register(ops); \
-    } \
-
-
 #define HAL_MAX_PCI_ADDR_LEN 16
-
-#define HAL_MAX_DRIVER_NAME_LEN 128
-
-#define HAL_MAX_PATH_LEN        4096    //max path length on linux is 4096
 
 #define HAL_SCRIPT_LENGTH       256
 
 #define HAL_HDL_TO_ID(hdl) (hdl.id)
 
-/* IO using DPDK interface */
-typedef struct dpdk_if
-{
-  uint8_t port_id;              /**< DPDK port identifier */
-  uint8_t slave_num;
-  uint8_t slave_port[HAL_MAX_SLAVES_PER_BOND];
-
-  uint32_t hw_vlan_filter:1;
-  uint32_t hw_vlan_strip:1;
-  uint32_t rsv30:30;
-
-  uint32_t rx_queue_num;
-  uint32_t rx_ring_size[HAL_ETH_MAX_QUEUE_NUM];
-  hal_mempool_t *rx_pool[HAL_ETH_MAX_QUEUE_NUM];
-
-  uint32_t tx_queue_num;
-  uint32_t tx_ring_size[HAL_ETH_MAX_QUEUE_NUM];
-
-  char pci_addr[HAL_MAX_PCI_ADDR_LEN];
-  char nic_name[HAL_MAX_NIC_NAME_LEN];
-  char nic_type[HAL_MAX_NIC_NAME_LEN];
-  char driver_name[HAL_MAX_DRIVER_NAME_LEN];
-} dpdk_if_t;
-
-typedef struct netif_inst
-{
-  enum
-  {
-    NETIF_STATE_FREE = 0,
-    NETIF_STATE_ACTIVE
-  } state;
-
-  hal_hdl_t hdl;
-
-  const struct netif_ops *ops;          /**< Implementation specific methods */
-
-  union
-  {
-    dpdk_if_t dpdk_if;              /**< using DPDK for IO */
-  } data;
-
-} netif_inst_t;
-
-typedef struct netif_ops
-{
-  const char *name;
-  int (*init_global) (int argc, char **argv);
-  int (*init_local) (void);
-  int (*open) (netif_inst_t * inst, const char *name, const char *type);
-  int (*close) (netif_inst_t * inst);
-  int (*start) (netif_inst_t * inst);
-  int (*stop) (netif_inst_t * inst);
-  int (*bond) (netif_inst_t * inst, const char *bond_name,
-               uint8_t slave_num, netif_inst_t * slave[]);
-    uint32_t (*mtu) (netif_inst_t * inst);
-  int (*macaddr) (netif_inst_t * inst, void *mac_addr);
-  int (*capability) (netif_inst_t * inst, hal_netif_capa_t * info);
-    uint16_t (*recv) (netif_inst_t * inst, uint16_t queue_id,
-                      hal_mbuf_t ** rx_pkts, uint16_t nb_pkts);
-    uint16_t (*send) (netif_inst_t * inst, uint16_t queue_id,
-                      hal_mbuf_t ** tx_pkts, uint16_t nb_pkts);
-    uint32_t (*link_status) (netif_inst_t * inst);
-  int (*stats) (netif_inst_t * inst, hal_netif_stats_t * stats);
-  int (*stats_reset) (netif_inst_t * inst);
-  int (*config) (netif_inst_t * inst, hal_netif_config_t * conf);
-  int (*mcastaddr) (netif_inst_t * inst, void *mc_addr_set,
-                    void *mc_addr, uint32_t nb_mc_addr);
-  int (*add_mac) (netif_inst_t * inst, void *mc_addr);
-  int (*rmv_mac) (netif_inst_t * inst, void *mc_addr);
-  int (*allmcast) (netif_inst_t * inst, uint8_t enable);
-} netif_ops_t;
-
 extern netif_inst_t netif_tbl[HAL_MAX_NIC_NUM];
 
-static inline netif_inst_t *
-alloc_netif_inst ()
+static inline netif_inst_t *alloc_netif_inst()
 {
-  int i;
-  netif_inst_t *inst;
+    int i;
+    netif_inst_t *inst;
 
-  for (i = 0; i < HAL_MAX_NIC_NUM; ++i)
+    for (i = 0; i < HAL_MAX_NIC_NUM; ++i)
     {
-      inst = &netif_tbl[i];
+        inst = &netif_tbl[i];
 
-      if (NETIF_STATE_FREE == inst->state)
+        if (NETIF_STATE_FREE == inst->state)
         {
-          inst->state = NETIF_STATE_ACTIVE;
+            inst->state = NETIF_STATE_ACTIVE;
 
-          inst->hdl.id = i;
+            inst->hdl.id = i;
 
-          return inst;
+            return inst;
         }
     }
 
-  return NULL;
+    return NULL;
 
 }
 
-static inline netif_inst_t *
-get_netif_inst (hal_hdl_t hdl)
+static inline netif_inst_t *get_netif_inst(hal_hdl_t hdl)
 {
-  netif_inst_t *inst;
+    netif_inst_t *inst;
 
-  if (unlikely (!hal_is_valid (hdl)))
+    if (unlikely(!hal_is_valid(hdl)))
     {
-      NSHAL_LOGERR ("inst id is not valid]inst=%i, HAL_MAX_NIC_NUM=%d",
-                    HAL_HDL_TO_ID (hdl), HAL_MAX_NIC_NUM);
+        NSHAL_LOGERR("inst id is not valid]inst=%i, HAL_MAX_NIC_NUM=%d",
+                     HAL_HDL_TO_ID(hdl), HAL_MAX_NIC_NUM);
 
-      return NULL;
+        return NULL;
     }
 
-  inst = &netif_tbl[HAL_HDL_TO_ID (hdl)];
+    inst = &netif_tbl[HAL_HDL_TO_ID(hdl)];
 
-  if (unlikely ((NETIF_STATE_ACTIVE != inst->state) || (NULL == inst->ops)))
+    if (unlikely((NETIF_STATE_ACTIVE != inst->state) || (NULL == inst->ops)))
     {
-      NSHAL_LOGERR ("netif is not active]inst=%i", HAL_HDL_TO_ID (hdl));
+        NSHAL_LOGERR("netif is not active]inst=%i", HAL_HDL_TO_ID(hdl));
 
-      return NULL;
+        return NULL;
     }
 
-  return inst;
+    return inst;
 }
 
-int hal_snprintf (char *buffer, size_t buflen, const char *format, ...);
-int hal_is_script_valid (const char *cmd);
-int hal_run_script (const char *cmd, char *result_buf, size_t max_result_len);
-void hal_io_adpt_register (const netif_ops_t * ops);
+static inline netif_inst_t *get_netif_inst_by_name(const char *name)
+{
+    int i;
+    netif_inst_t *inst;
+
+    if (!name)
+    {
+        return NULL;
+    }
+
+    for (i = 0; i < HAL_MAX_NIC_NUM; ++i)
+    {
+        inst = &netif_tbl[i];
+
+        if (NETIF_STATE_ACTIVE == inst->state
+            && 0 == strncmp(name, inst->data.dpdk_if.nic_name,
+                            HAL_MAX_NIC_NAME_LEN))
+        {
+            return inst;
+        }
+    }
+
+    return NULL;
+
+}
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

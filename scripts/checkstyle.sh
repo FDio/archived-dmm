@@ -75,7 +75,7 @@ cd ${DMM_DIR}
 
 
 if [ "${FULL}" == "1" ]; then
-	FILELIST=$(git ls-tree -r HEAD --name-only)
+	FILELIST=$(git ls-tree -r HEAD --name-only | grep -v 'thirdparty\|testcode\|release\|platform')
 else
 	FILELIST=$((git diff HEAD~1.. --name-only; git ls-files -m ) | sort -u)
 fi
@@ -133,8 +133,8 @@ for i in ${FILELIST}; do
                 then
                     clang-format ${i} > ${i}.out2
                 else
-                    indent -gnu -nut ${i} -o ${i}.out1 > /dev/null 2>&1
-                    indent -gnu -nut ${i}.out1 -o ${i}.out2 > /dev/null 2>&1
+                    indent -nut -sob -i4 -bli0 -npsl -cli4 -npcs ${i} -o ${i}.out1 > /dev/null 2>&1
+                    indent -nut -sob -i4 -bli0 -npsl -cli4 -npcs ${i}.out1 -o ${i}.out2 > /dev/null 2>&1
                 fi
                 # Remove trailing whitespace
                 sed -i -e 's/[[:space:]]*$//' ${i}.out2
@@ -143,8 +143,8 @@ for i in ${FILELIST}; do
                 if [ "${CMD}" == "clang-format" ]; then
                     clang-format -i ${i} > /dev/null 2>&1
                 else
-                    indent -nut -sob ${i}
-                    indent -nut -sob ${i}
+                    indent -nut -sob -i4 -bli0 -npsl -cli4 -npcs ${i}
+                    indent -nut -sob -i4 -bli0 -npsl -cli4 -npcs ${i}
                 fi
                 # Remove trailing whitespace
                 sed -i -e 's/[[:space:]]*$//' ${i}
@@ -158,7 +158,6 @@ for i in ${FILELIST}; do
                     echo "clang-format -i ${DMM_DIR}${i}"
                 else
                     echo "Run indent (twice!) as shown to fix the problem:"
-                    echo "indent ${DMM_DIR}${i}"
                     echo "indent ${DMM_DIR}${i}"
                 fi
             fi

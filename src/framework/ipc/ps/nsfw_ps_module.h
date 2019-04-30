@@ -29,10 +29,6 @@ extern "C"{
 /*==============================================*
  *      constants or macros define              *
  *----------------------------------------------*/
-
-#define NSFW_MAX_PID 65535
-COMPAT_PROTECT (NSFW_MAX_PID, 65535);
-
 #define NSFW_PS_INFO_MAX_COUNT 4095
 #define MAX_NET_LINK_BUF_DEF 0x34000*32
 
@@ -44,15 +40,15 @@ COMPAT_PROTECT (NSFW_MAX_PID, 65535);
 
 typedef struct _nsfw_ps_init_cfg
 {
-  u32 ps_info_size;
-  u32 net_link_buf;
+    u32 ps_info_size;
+    u32 net_link_buf;
 
-  u16 ps_waite_exit_tvalue;
-  u16 ps_chk_hbt_count;
-  u16 ps_chk_hbt_soft_count;
-  u16 ps_chk_hbt_tvalue;
+    u16 ps_waite_exit_tvalue;
+    u16 ps_chk_hbt_count;
+    u16 ps_chk_hbt_soft_count;
+    u16 ps_chk_hbt_tvalue;
 
-  mring_handle ps_info_pool;
+    mring_handle ps_info_pool;
 } nsfw_ps_init_cfg;
 
 #define NSFW_PS_CHK_TIMER  1
@@ -61,22 +57,24 @@ typedef struct _nsfw_ps_init_cfg
 
 typedef struct _nsfw_pid_item
 {
-  u8 proc_type;
-  u8 u8_reserve;
-  u16 u16_reserve;
-  u32 u32_reserve;
-  nsfw_ps_info *ps_info;
+    u8 proc_type;
+    u8 u8_reserve;
+    u16 u16_reserve;
+    u32 starttime;
+    nsfw_ps_info *ps_info;
 } nsfw_pid_item;
 
-int nsfw_ps_change_fun (i32 epfd, i32 socket, u32 events);
-u8 nsfw_sw_ps_state (nsfw_ps_info * pps_info, u8 new_state);
+u32 get_ps_exiting_cnt();
+
+int nsfw_ps_change_fun(i32 epfd, i32 socket, u32 events);
+u8 nsfw_sw_ps_state(nsfw_ps_info * pps_info, u8 new_state);
 
 /* for heartbeat checking*/
 #define NSFW_MAX_THREAD_DOGS_COUNT 8
 #define NSFW_CHK_HBT_TIMER  1
 #define NSFW_MAX_HBT_PROC_FUN  4
 
-#define NSFW_CHK_HBT_TVLAUE_DEF 1
+#define NSFW_CHK_HBT_TVLAUE_DEF 3
 
 #define NSFW_MAX_HBT_CHK_COUNT   (g_ps_cfg.ps_chk_hbt_count)
 #define NSFW_SOFT_HBT_CHK_COUNT   (g_ps_cfg.ps_chk_hbt_soft_count)
@@ -84,11 +82,11 @@ u8 nsfw_sw_ps_state (nsfw_ps_info * pps_info, u8 new_state);
 
 typedef struct _nsfw_ps_chk_msg
 {
-  u32 ps_state;
-  i32 thread_chk_count;
+    u32 ps_state;
+    i32 thread_chk_count;
 } nsfw_ps_chk_msg;
 
-int nsfw_ps_chk_timeout (u32 timer_type, void *data);
+int nsfw_ps_chk_timeout(u32 timer_type, void *data);
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */
