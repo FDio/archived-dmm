@@ -43,26 +43,27 @@ echo '{
 }' | tee module_config.json
 
 echo '{
-        "ip_route": [
+    "modules": [
         {
-                "subnet": "'$ifaddress1'/24",
-                "type": "nstack-kernel",
-        },
-        {
-                "subnet": "'$ifaddress2'/24",
-                "type": "nstack-kernel",
-        },
-        ],
-        "prot_route": [
-        {
-                "proto_type": "1",
-                "type": "nstack-kernel",
-        },
-        {
-                "proto_type": "2",
-                "type": "nstack-kernel",
+            "name": "kernel",
+            "ip_route": [
+                "'$ifaddress1'/24",
+                "'$ifaddress2'/24"
+            ],
+            "type_route": [
+            ],
+            "protocol_route": [
+               {
+                 "value": "1",
+                 "attr": "0"
+               },
+               {
+                 "value": "2",
+                 "attr": "0"
+               }
+            ]
         }
-        ],
+  ]
 }' | tee rd_config.json
 
 cp -r ${DMM_DIR}/release/lib64/* .

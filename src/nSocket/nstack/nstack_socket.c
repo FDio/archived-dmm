@@ -3095,6 +3095,7 @@ pid_t nstack_fork(void)
     dmm_write_lock(get_fork_lock());
     if (NSTACK_MODULE_SUCCESS == g_nStackInfo.fwInited)
     {
+        nstack_fork_init_parent(ppid);
         fork_parent_start(ppid);
         pid = nsfw_base_fork();
         if (pid == 0)

@@ -17,7 +17,9 @@
 
 set -x
 
-cd ../stacks/vpp
+SCRIPT_DIR=`dirname $(readlink -f $0)`
+
+cd $SCRIPT_DIR/../stacks/vpp
 
 git clone https://gerrit.fd.io/r/vpp
 cd vpp

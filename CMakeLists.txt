@@ -94,8 +94,9 @@ FILE(APPEND ${post_compile}
 
 rm -rf ${OLD_DPDK_PATH};
 
+mkdir -p ${CMAKE_CURRENT_LIST_DIR}/release/include/glog/
 cp -f ${CMAKE_CURRENT_LIST_DIR}/src/include/*.h ${CMAKE_CURRENT_LIST_DIR}/release/include/
-mkdir ${CMAKE_CURRENT_LIST_DIR}/release/include/glog/
+cp -f ${CMAKE_CURRENT_LIST_DIR}/src/include/declare_syscalls.h.tmpl ${CMAKE_CURRENT_LIST_DIR}/release/include/
 cp -f ${CMAKE_CURRENT_LIST_DIR}/thirdparty/glog/glog-0.3.5/src/glog/nstack_glog.ph ${CMAKE_CURRENT_LIST_DIR}/release/include/glog/
 cp -f ${CMAKE_CURRENT_LIST_DIR}/thirdparty/glog/glog-0.3.5/src/glog/nstack_glog_in.h ${CMAKE_CURRENT_LIST_DIR}/release/include/glog/
 echo post compile process success.
@@ -118,7 +119,6 @@ ADD_CUSTOM_TARGET(pkg-rpm COMMAND sh ../scripts/generate_dmm_rpm.sh)
 
 ADD_CUSTOM_TARGET(pkg-deb COMMAND sh ../scripts/generate_dmm_deb.sh)
 ADD_CUSTOM_TARGET(vpp-stack
-COMMAND cp -f ${CMAKE_CURRENT_LIST_DIR}/src/include/declare_syscalls.h.tmpl ${CMAKE_CURRENT_LIST_DIR}/release/include/
 COMMAND sh ../scripts/build_vpp.sh)
 ADD_DEPENDENCIES(vpp-stack DPDK)
 ADD_CUSTOM_TARGET(checkstyle
@@ -175,5 +175,6 @@ ExternalProject_Add(
 )
 
 ADD_SUBDIRECTORY(src)
+ADD_SUBDIRECTORY(app_example)
 ADD_SUBDIRECTORY(thirdparty/apps)
 ADD_SUBDIRECTORY(stacks/rsocket)

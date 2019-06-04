@@ -1,0 +1,8 @@
+{
+  "ports_list": [
+    {
+      "port_name": "PortA",
+      "ip_cidr": ["192.168.1.175/24"]
+    }
+  ]
+}

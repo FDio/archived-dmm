@@ -1,0 +1,104 @@
+diff --git a/src/vcl/CMakeLists.txt b/src/vcl/CMakeLists.txt
+index 2578a37..21245e4 100644
+--- a/src/vcl/CMakeLists.txt
++++ b/src/vcl/CMakeLists.txt
+@@ -38,6 +38,19 @@ add_vpp_library(vcl_ldpreload
+   vppinfra svm vlibmemoryclient rt pthread vppcom dl
+ )
+ 
++set(DMM_HEADERS_DIR ${CMAKE_CURRENT_LIST_DIR}/../../../../../release/include/)
++include_directories(${DMM_HEADERS_DIR})
++
++add_vpp_library(dmm_vcl
++  SOURCES
++  dmm_vcl_adpt.c
++  ldp_socket_wrapper.c
++  ldp.c
++
++  LINK_LIBRARIES
++  vppinfra svm vlibmemoryclient vppcom vcl_ldpreload pthread rt dl
++)
++
+ add_vpp_headers(vcl
+   ldp.h
+   sock_test.h
+diff --git a/src/vcl/ldp.c b/src/vcl/ldp.c
+index 9e00d7e..2ba1099 100644
+--- a/src/vcl/ldp.c
++++ b/src/vcl/ldp.c
+@@ -26,6 +26,7 @@
+ #include <vcl/ldp.h>
+ #include <sys/time.h>
+ 
++#include <vcl/vcl_private.h>
+ #include <vcl/vcl_locked.h>
+ #include <vppinfra/time.h>
+ #include <vppinfra/bitmap.h>
+@@ -672,6 +673,7 @@ ldp_pselect (int nfds, fd_set * __restrict readfds,
+             const __sigset_t * __restrict sigmask)
+ {
+   u32 minbits = clib_max (nfds, BITS (uword)), n_bytes;
++  vcl_set_worker_index(0);
+   ldp_worker_ctx_t *ldpw = ldp_worker_get_current ();
+   struct timespec libc_tspec = { 0 };
+   f64 time_out, vcl_timeout = 0;
+@@ -2170,6 +2172,7 @@ static inline int
+ ldp_epoll_pwait (int epfd, struct epoll_event *events, int maxevents,
+                 int timeout, const sigset_t * sigmask)
+ {
++  vcl_set_worker_index(0);
+   ldp_worker_ctx_t *ldpw = ldp_worker_get_current ();
+   double time_to_wait = (double) 0, max_time;
+   int libc_epfd, rv = 0;
+diff --git a/src/vcl/vcl_locked.c b/src/vcl/vcl_locked.c
+index 5539191..528e331 100644
+--- a/src/vcl/vcl_locked.c
++++ b/src/vcl/vcl_locked.c
+@@ -468,7 +468,7 @@ vls_mt_rel_locks (int locks_acq)
+ 
+ #define vls_mt_guard(_vls, _op)                                \
+   int _locks_acq = 0;                                  \
+-  if (PREDICT_FALSE (vcl_get_worker_index () == ~0))   \
++  if (PREDICT_FALSE (vcl_get_worker_index () == ~0));  \
+     vls_mt_add ();                                     \
+   if (PREDICT_FALSE (vlsl->vls_mt_n_threads > 1))      \
+     vls_mt_acq_locks (_vls, _op, &_locks_acq);         \
+@@ -779,8 +779,10 @@ vls_epoll_ctl (vls_handle_t ep_vlsh, int op, vls_handle_t vlsh,
+   vls_table_rlock ();
+   ep_vls = vls_get_and_lock (ep_vlsh);
+   vls = vls_get_and_lock (vlsh);
++  vls_mt_guard (0, VLS_MT_OP_XPOLL);
+   ep_sh = vls_to_sh (ep_vls);
+   sh = vls_to_sh (vls);
++  vls_mt_unguard ();
+ 
+   if (PREDICT_FALSE (!vlsl->epoll_mp_check))
+     vls_epoll_ctl_mp_checks (vls, op);
+@@ -886,6 +888,7 @@ vls_unshare_vcl_worker_sessions (vcl_worker_t * wrk)
+   vls_table_wunlock ();
+ }
+ 
++#if 0
+ static void
+ vls_cleanup_vcl_worker (vcl_worker_t * wrk)
+ {
+@@ -1043,7 +1046,7 @@ vls_app_fork_parent_handler (void)
+   while (vcm->forking)
+     ;
+ }
+-
++#endif
+ void
+ vls_app_exit (void)
+ {
+@@ -1061,8 +1064,8 @@ vls_app_create (char *app_name)
+   vlsm = clib_mem_alloc (sizeof (vls_main_t));
+   clib_memset (vlsm, 0, sizeof (*vlsm));
+   clib_rwlock_init (&vlsm->vls_table_lock);
+-  pthread_atfork (vls_app_pre_fork, vls_app_fork_parent_handler,
+-                 vls_app_fork_child_handler);
++ /* pthread_atfork (vls_app_pre_fork, vls_app_fork_parent_handler,
++                 vls_app_fork_child_handler);*/
+   atexit (vls_app_exit);
+   vlsl->vls_wrk_index = vcl_get_worker_index ();
+   vls_mt_locks_init ();

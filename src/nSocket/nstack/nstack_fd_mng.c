@@ -342,6 +342,29 @@ void nstack_fork_fd(pid_t ppid)
     }
 }
 
+void nstack_fork_init_parent(pid_t ppid)
+{
+    int fd;
+    nstack_fd_Inf *fdInf = NULL;
+    for (fd = 0; fd < (int) NSTACK_KERNEL_FD_MAX; fd++)
+    {
+        fdInf = nstack_get_valid_inf(fd);
+        if ((NULL != fdInf) && (!((u32_t) (fdInf->type) & SOCK_CLOEXEC)))
+        {
+            int i;
+            nstack_each_mod_inx(i)
+            {
+                if ((nstack_fd_deal[i].fork_parent_fd)
+                    && (fdInf->protoFD[i].fd >= 0))
+                {
+                    nstack_fd_deal[i].fork_parent_fd(fdInf->protoFD[i].fd,
+                                                     ppid);
+                }
+            }
+        }
+    }
+}
+
 void nstack_fork_init_child(pid_t ppid)
 {
     pid_t cpid = updata_sys_pid();

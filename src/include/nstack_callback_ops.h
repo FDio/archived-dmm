@@ -54,6 +54,7 @@ typedef struct __nstack_proc_ops
     int (*fork_init_child) (pid_t p, pid_t c);
     void (*fork_fd) (int s, pid_t p, pid_t c);
     void (*fork_free_fd) (int s);
+    void (*fork_parent_fd) (int s, pid_t p);    /*after fork, stack parent process proc again if needed. */
     void (*(*ep_triggle)
           (int proFD, int triggle_ops, void *epinfo, void *epitem));
     int (*ep_getEvt) (int proFD);

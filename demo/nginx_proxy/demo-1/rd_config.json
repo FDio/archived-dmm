@@ -1,0 +1,42 @@
+{
+    "modules": [
+        {
+            "name": "kernel",
+            "ip_route": [
+                "192.168.50.10/32"
+            ],
+            "type_route": [
+            ],
+            "protocol_route": [
+               {
+                 "value": "2",
+                 "attr": "0"
+               }
+            ]
+        },
+        {
+            "name": "lwip",
+            "ip_route": [
+                "192.168.50.20/32"
+            ],
+            "type_route": [
+            ],
+            "protocol_route": [
+             {
+               "value": "1",
+               "attr": "0"
+             }
+            ]
+        },
+        {
+            "name": "vpp_hoststack",
+            "ip_route": [
+                "172.167.50.20/24"
+            ],
+            "type_route": [
+            ],
+            "protocol_route": [
+            ]
+        }
+    ]
+}

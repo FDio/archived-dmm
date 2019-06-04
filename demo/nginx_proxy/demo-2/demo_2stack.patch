@@ -1,0 +1,15 @@
+diff --git a/src/nSocket/nstack/nstack_module.c b/src/nSocket/nstack/nstack_module.c
+index fdfea06..27e96d6 100644
+--- a/src/nSocket/nstack/nstack_module.c
++++ b/src/nSocket/nstack/nstack_module.c
+@@ -61,6 +61,10 @@ int nstack_get_deploy_type()
+         if (g_nstack_module_desc[icnt].deploytype > type)
+         {
+             type = g_nstack_module_desc[icnt].deploytype;
++            if (NSTACK_MODEL_TYPE3 == type)
++            {
++                break;
++            }
+         }
+     }
+     return type;

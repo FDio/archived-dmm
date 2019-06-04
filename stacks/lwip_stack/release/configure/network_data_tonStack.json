@@ -1,0 +1,16 @@
+[
+  {
+    "name": "network1",
+    "type": "nstack-dpdk",
+    "ipam": {
+      "subnet": "192.168.1.1/24"
+    },
+    "args": {
+      "phynet": {
+        "ref_nic": [
+          "ens4"
+        ]
+      }
+    }
+  },
+]

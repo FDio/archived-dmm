@@ -1,0 +1,26 @@
+{
+  "ip_route": [
+    {
+      "subnet": "192.168.1.1/24",
+      "stack_name": "vpp_hoststack",
+    },
+    {
+      "subnet": "10.145.240.1/24",
+      "stack_name": "kernel",
+    },
+    {
+      "subnet": "192.166.1.1/24",
+      "stack_name": "kernel",
+    }
+  ],
+  "prot_route": [
+    {
+      "proto_type": "1",
+      "stack_name": "vpp_hoststack",
+    },
+    {
+      "proto_type": "2",
+      "stack_name": "kernel",
+    }
+  ],
+}

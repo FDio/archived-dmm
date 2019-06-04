@@ -225,6 +225,7 @@ extern void nstack_fd_free(nstack_fd_Inf * fdInf);
 
 void nstack_fork_init_child(pid_t ppid);
 void nstack_fork_fd(pid_t ppid);
+void nstack_fork_init_parent(pid_t ppid);
 
 #ifdef __cplusplus
 /* *INDENT-OFF* */

@@ -1,0 +1,26 @@
+{
+  "default_stack_name": "kernel",
+  "module_list": [
+    {
+      "stack_name": "kernel",
+	"function_name": "kernel_stack_register",
+	  "libname": "./",
+      "deploytype": "1",
+      "stackid": "0"
+    },
+    {
+      "stack_name": "lwip",
+        "function_name": "lwip_stack_register",
+      "libname": "liblwip_dpdk.so",
+      "deploytype": "3",
+      "stackid": "1"
+    },
+    {
+        "stack_name": "vpp_hoststack",
+        "function_name": "vpp_hoststack_stack_register",
+        "libname": "./libdmm_vcl.so",
+       "deploytype": "4",
+        "stackid": "2"
+     }
+  ]
+}

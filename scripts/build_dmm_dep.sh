@@ -13,10 +13,10 @@ OS_ID=$(grep '^ID=' /etc/os-release | cut -f2- -d= | sed -e 's/\"//g')
 if [ "$OS_ID" == "ubuntu" ]; then
     export DEBIAN_FRONTEND=noninteractive
     export DEBCONF_NONINTERACTIVE_SEEN=true
-
+    sudo rm /var/lib/apt/lists/* -vf
     APT_OPTS="--assume-yes --no-install-suggests --no-install-recommends -o Dpkg::Options::=\"--force-confdef\" -o Dpkg::Options::=\"--force-confold\""
     sudo apt-get update ${APT_OPTS}
-    sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git cmake gcc g++ automake libtool wget lsof lshw pciutils net-tools tcpdump libpcre3 libpcre3-dev zlibc zlib1g zlib1g-dev vim pkg-config tcl libnl-route-3-200 flex graphviz tk debhelper dpatch gfortran ethtool libgfortran3 bison dkms quilt chrpath swig python-libxml2 unzip
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -yq git cmake gcc g++ automake libtool wget lsof lshw pciutils net-tools tcpdump libpcre3 libpcre3-dev zlibc zlib1g zlib1g-dev vim pkg-config tcl libnl-route-3-200 flex graphviz tk debhelper dpatch gfortran ethtool libgfortran3 bison dkms quilt chrpath swig python-libxml2 unzip libibverbs-dev
 elif [ "$OS_ID" == "debian" ]; then
     echo "not tested for debian and exit"
     exit 1

@@ -1,0 +1,18 @@
+{
+    "modules": [
+        {
+            "name": "kernel",
+            "ip_route": [
+                "192.168.50.1/32"
+            ],
+            "type_route": [
+            ],
+            "protocol_route": [
+               {
+                 "value": "2",
+                 "attr": "0"
+               }
+            ]
+        }
+  ]
+}
